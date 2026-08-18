@@ -18,6 +18,7 @@
 		A10000000000000000000009 /* StoreFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* StoreFile.swift */; };
 		A1000000000000000000000A /* LanSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* LanSync.swift */; };
 		A1000000000000000000000B /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* Views.swift */; };
+		A1000000000000000000000D /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* L10n.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +34,7 @@
 		A20000000000000000000009 /* StoreFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreFile.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* LanSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanSync.swift; sourceTree = "<group>"; };
 		A2000000000000000000000B /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Task Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Task Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -70,6 +72,7 @@
 				A20000000000000000000009 /* StoreFile.swift */,
 				A2000000000000000000000A /* LanSync.swift */,
 				A2000000000000000000000B /* Views.swift */,
+				A2000000000000000000000D /* L10n.swift */,
 				A2000000000000000000000C /* Assets.xcassets */,
 			);
 			path = TaskTracker;
@@ -164,6 +167,7 @@
 				A10000000000000000000009 /* StoreFile.swift in Sources */,
 				A1000000000000000000000A /* LanSync.swift in Sources */,
 				A1000000000000000000000B /* Views.swift in Sources */,
+				A1000000000000000000000D /* L10n.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -214,7 +218,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Task Tracker";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSBonjourServices = _zadachi._tcp.;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Чтобы список с телефона сел на Mac, когда оба в одном Wi‑Fi.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Task Tracker syncs this list with the Mac on the same Wi‑Fi.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -223,7 +227,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios;
 				PRODUCT_NAME = "Task Tracker";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -249,7 +253,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Task Tracker";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSBonjourServices = _zadachi._tcp.;
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Чтобы список с телефона сел на Mac, когда оба в одном Wi‑Fi.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Task Tracker syncs this list with the Mac on the same Wi‑Fi.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -258,7 +262,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.5.0;
+				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios;
 				PRODUCT_NAME = "Task Tracker";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

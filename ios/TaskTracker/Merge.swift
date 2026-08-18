@@ -26,7 +26,9 @@ enum StoreMerge {
     }
     let localStamp = local.tasks.map(\.updatedAt).max() ?? 0
     let remoteStamp = remote.tasks.map(\.updatedAt).max() ?? 0
-    let newerSettings = remoteStamp > localStamp ? remote.settings : local.settings
+    let localSet = local.settings.updatedAt ?? localStamp
+    let remoteSet = remote.settings.updatedAt ?? remoteStamp
+    let newerSettings = remoteSet > localSet ? remote.settings : local.settings
     return Store(
       schemaVersion: 6,
       projects: Array(projects.values).sorted { $0.createdAt < $1.createdAt },
@@ -34,7 +36,9 @@ enum StoreMerge {
       settings: Settings(
         lastView: newerSettings.lastView,
         zones: zones.isEmpty ? Domain.defaultZones() : Array(zones.values),
-        deviceId: local.settings.deviceId ?? remote.settings.deviceId
+        deviceId: local.settings.deviceId ?? remote.settings.deviceId,
+        locale: newerSettings.locale ?? local.settings.locale ?? remote.settings.locale ?? "en",
+        updatedAt: max(localSet, remoteSet)
       )
     )
   }

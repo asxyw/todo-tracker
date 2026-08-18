@@ -3,16 +3,11 @@ import Foundation
 enum Domain {
   static let colors = ["#0a84ff", "#30d158", "#ff9f0a", "#ff453a", "#bf5af2", "#64d2ff", "#ffd60a", "#ff375f"]
   static let repeatDays: [String: Int] = ["1d": 1, "7d": 7, "1m": 30]
-  static let repeatLabel: [String: String] = [
-    "1d": "каждый день",
-    "7d": "каждую неделю",
-    "1m": "каждый месяц",
-  ]
 
   static func defaultZones() -> [Zone] {
     [
-      Zone(id: "life", name: "Быт", mode: "dates"),
-      Zone(id: "dev", name: "Разработка", mode: "focus"),
+      Zone(id: "life", name: L10n.t("zoneLife"), mode: "dates"),
+      Zone(id: "dev", name: L10n.t("zoneDev"), mode: "focus"),
     ]
   }
 
@@ -52,7 +47,7 @@ enum Domain {
     store.schemaVersion = 6
     store.tasks = store.tasks.enumerated().map { index, task in
       var next = task
-      if next.title.isEmpty { next.title = "Без названия" }
+      if next.title.isEmpty { next.title = L10n.t("untitled") }
       if next.repeatRule != nil, repeatDays[next.repeatRule ?? ""] == nil { next.repeatRule = nil }
       if next.order == 0 { next.order = Double(index + 1) }
       return next

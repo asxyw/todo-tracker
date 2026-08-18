@@ -11,30 +11,31 @@ struct RootView: View {
       NavigationStack {
         TaskBoardView()
       }
-      .tabItem { Label("Сегодня", systemImage: "sun.max") }
+      .tabItem { Label(L10n.t("today"), systemImage: "sun.max") }
       .tag(AppView.today)
 
       NavigationStack {
         TaskBoardView()
       }
-      .tabItem { Label("Входящие", systemImage: "tray") }
+      .tabItem { Label(L10n.t("inbox"), systemImage: "tray") }
       .badge(model.counts.inbox > 0 ? "\(model.counts.inbox)" : nil)
       .tag(AppView.inbox)
 
       NavigationStack {
         ProjectListView()
       }
-      .tabItem { Label("Проекты", systemImage: "folder") }
+      .tabItem { Label(L10n.t("projects"), systemImage: "folder") }
       .tag(AppView.all)
 
       NavigationStack {
         UpcomingView()
       }
-      .tabItem { Label("Предстоящие", systemImage: "calendar") }
+      .tabItem { Label(L10n.t("upcoming"), systemImage: "calendar") }
       .tag(AppView.upcoming)
     }
     .tint(Color(red: 0.04, green: 0.52, blue: 1))
     .preferredColorScheme(.dark)
+    .id(model.locale)
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { model.pingNetwork() }
     }
@@ -160,10 +161,10 @@ struct TaskBoardView: View {
     VStack(spacing: 0) {
       if showSearch {
         HStack {
-          TextField("Поиск", text: $model.query)
+          TextField(L10n.t("search"), text: $model.query)
             .textFieldStyle(.plain)
             .submitLabel(.search)
-          Button("Отмена") {
+          Button(L10n.t("cancel")) {
             showSearch = false
             model.query = ""
             dismissKeyboard()
@@ -214,6 +215,7 @@ struct TaskBoardView: View {
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
         HStack(spacing: 12) {
+          LanguageToggle()
           Button {
             showSearch.toggle()
             if !showSearch {
@@ -263,7 +265,7 @@ struct ComposerView: View {
             model.addDraft()
             composerFocused = false
           }
-        Button("Добавить") {
+        Button(L10n.t("add")) {
           model.addDraft()
           composerFocused = false
           dismissKeyboard()
@@ -294,7 +296,7 @@ struct ComposerView: View {
     .toolbar {
       ToolbarItemGroup(placement: .keyboard) {
         Spacer()
-        Button("Готово") {
+        Button(L10n.t("doneKey")) {
           composerFocused = false
           dismissKeyboard()
         }
@@ -302,19 +304,19 @@ struct ComposerView: View {
     }
     .sheet(isPresented: $pickDate) {
       NavigationStack {
-        DatePicker("Дата", selection: dateBinding, displayedComponents: .date)
+        DatePicker(L10n.t("date"), selection: dateBinding, displayedComponents: .date)
           .datePickerStyle(.graphical)
-          .navigationTitle("Срок")
+          .navigationTitle(L10n.t("dueDate"))
           .navigationBarTitleDisplayMode(.inline)
           .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-              Button("Без даты") {
+              Button(L10n.t("noDate")) {
                 model.chipDue = nil
                 pickDate = false
               }
             }
             ToolbarItem(placement: .confirmationAction) {
-              Button("Ок") { pickDate = false }
+              Button(L10n.t("ok")) { pickDate = false }
             }
           }
       }
@@ -324,10 +326,10 @@ struct ComposerView: View {
 
   private var placeholder: String {
     switch model.view {
-    case .today: return "Что сделать сегодня?  завтра, пт, +3д"
-    case .inbox: return "Схватить, разложить потом"
-    case .upcoming: return "На \(Dates.formatChip(model.upcomingDate).lowercased())"
-    default: return "Новая задача"
+    case .today: return L10n.t("placeholderToday")
+    case .inbox: return L10n.t("placeholderInbox")
+    case .upcoming: return L10n.t("onDay", ["label": Dates.formatChip(model.upcomingDate)])
+    default: return L10n.t("placeholderTask")
     }
   }
 
@@ -335,24 +337,24 @@ struct ComposerView: View {
     switch model.view {
     case .today:
       return [
-        ("Сегодня", Dates.todayIso()),
-        ("Завтра", Dates.tomorrowIso()),
-        ("Без даты", nil),
+        (L10n.t("today"), Dates.todayIso()),
+        (L10n.t("tomorrow"), Dates.tomorrowIso()),
+        (L10n.t("noDate"), nil),
       ]
     case .inbox:
       return [
-        ("Без даты", nil),
-        ("Сегодня", Dates.todayIso()),
-        ("Завтра", Dates.tomorrowIso()),
+        (L10n.t("noDate"), nil),
+        (L10n.t("today"), Dates.todayIso()),
+        (L10n.t("tomorrow"), Dates.tomorrowIso()),
       ]
     case .upcoming:
       return [
         (Dates.formatChip(model.upcomingDate), model.upcomingDate),
-        ("Сегодня", Dates.todayIso()),
-        ("Без даты", nil),
+        (L10n.t("today"), Dates.todayIso()),
+        (L10n.t("noDate"), nil),
       ]
     default:
-      return [("Без даты", nil), ("Сегодня", Dates.todayIso())]
+      return [(L10n.t("noDate"), nil), (L10n.t("today"), Dates.todayIso())]
     }
   }
 
@@ -405,10 +407,10 @@ struct TaskRow: View {
           .foregroundStyle(task.done ? .secondary : .primary)
         HStack(spacing: 6) {
           if task.next {
-            Text("шаг").font(.caption2).foregroundStyle(.cyan)
+            Text(L10n.t("step")).font(.caption2).foregroundStyle(.cyan)
           }
           if task.later {
-            Text("не сегодня").font(.caption2).foregroundStyle(.secondary)
+            Text(L10n.t("laterChip")).font(.caption2).foregroundStyle(.secondary)
           }
           Text(Dates.formatChip(task.due))
             .font(.caption2)
@@ -424,15 +426,15 @@ struct TaskRow: View {
     .contentShape(Rectangle())
     .onTapGesture { model.editingTask = task }
     .swipeActions(edge: .trailing) {
-      Button(role: .destructive) { model.remove(task.id) } label: { Text("Удалить") }
-      Button { model.later(task.id) } label: { Text("Не сегодня") }
+      Button(role: .destructive) { model.remove(task.id) } label: { Text(L10n.t("remove")) }
+      Button { model.later(task.id) } label: { Text(L10n.t("notToday")) }
         .tint(.orange)
     }
     .swipeActions(edge: .leading) {
-      Button { model.setDue(task.id, due: Dates.tomorrowIso()) } label: { Text("Завтра") }
+      Button { model.setDue(task.id, due: Dates.tomorrowIso()) } label: { Text(L10n.t("tomorrow")) }
         .tint(.indigo)
       if task.projectId != nil {
-        Button { model.pinNext(task.id) } label: { Text("Шаг") }
+        Button { model.pinNext(task.id) } label: { Text(L10n.t("stepCap")) }
           .tint(.blue)
       }
     }
@@ -464,23 +466,23 @@ struct TaskEditSheet: View {
   var body: some View {
     NavigationStack {
       Form {
-        TextField("Задача", text: $title, axis: .vertical)
+        TextField(L10n.t("taskNoun"), text: $title, axis: .vertical)
           .lineLimit(2...8)
           .submitLabel(.done)
-        Toggle("Срок", isOn: $hasDue)
+        Toggle(L10n.t("dueDate"), isOn: $hasDue)
         if hasDue {
-          DatePicker("Дата", selection: $due, displayedComponents: .date)
+          DatePicker(L10n.t("date"), selection: $due, displayedComponents: .date)
             .datePickerStyle(.graphical)
         }
       }
-      .navigationTitle("Задача")
+      .navigationTitle(L10n.t("taskNoun"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Закрыть") { dismiss() }
+          Button(L10n.t("close")) { dismiss() }
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Сохранить") {
+          Button(L10n.t("save")) {
             var patch = TaskPatch(title: title)
             if hasDue {
               patch.due = Dates.iso(due)
@@ -507,21 +509,21 @@ struct NextPromptView: View {
       let project = model.store.projects.first { $0.id == projectId }
       let candidates = Selectors.nextCandidates(model.store, projectId: projectId)
       List {
-        Section("Следующий шаг по «\(project?.name ?? "")»?") {
+        Section(L10n.t("nextFor", name: project?.name ?? "")) {
           ForEach(candidates) { task in
             Button(task.title) { model.pickNext(task.id) }
               .foregroundStyle(.primary)
           }
           HStack {
-            TextField("Или напишите новый шаг", text: $text)
-            Button("Ок") { model.addNextFromPrompt(text); text = "" }
+            TextField(L10n.t("writeStep"), text: $text)
+            Button(L10n.t("ok")) { model.addNextFromPrompt(text); text = "" }
               .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
           }
-          Button("Пока без шага") { model.skipNext() }
+          Button(L10n.t("skipStep")) { model.skipNext() }
             .foregroundStyle(.secondary)
         }
       }
-      .navigationTitle("Шаг")
+      .navigationTitle(L10n.t("stepCap"))
       .navigationBarTitleDisplayMode(.inline)
     }
   }
@@ -543,7 +545,7 @@ struct ProjectListView: View {
         }
       }
       ForEach(Domain.listZones(model.store)) { zone in
-        Section("\(zone.name) · \(zone.mode == "focus" ? "шаг" : "даты")") {
+        Section("\(zone.name) · \(zone.mode == "focus" ? L10n.t("step") : L10n.t("dates"))") {
           ForEach(Selectors.projectsInZone(model.store, zone: zone.id)) { project in
             NavigationLink {
               ProjectBoard(projectId: project.id)
@@ -553,7 +555,7 @@ struct ProjectListView: View {
                 VStack(alignment: .leading) {
                   Text(project.name)
                   if zone.mode == "focus" {
-                    Text(Selectors.nextStep(model.store, projectId: project.id)?.title ?? "Нужен шаг")
+                    Text(Selectors.nextStep(model.store, projectId: project.id)?.title ?? L10n.t("needAStep"))
                       .font(.caption)
                       .foregroundStyle(.secondary)
                       .lineLimit(1)
@@ -565,25 +567,25 @@ struct ProjectListView: View {
         }
       }
       if !Selectors.archivedProjects(model.store).isEmpty {
-        Section("Архив") {
+        Section(L10n.t("archive")) {
           ForEach(Selectors.archivedProjects(model.store)) { project in
             HStack {
               Text(project.name)
               Spacer()
-              Button("Вернуть") { model.restoreProject(project.id) }
+              Button(L10n.t("restore")) { model.restoreProject(project.id) }
             }
           }
         }
       }
-      Section("Новый проект") {
-        Picker("Раздел", selection: $zoneId) {
+      Section(L10n.t("newProject")) {
+        Picker(L10n.t("section"), selection: $zoneId) {
           ForEach(Domain.listZones(model.store)) { zone in
             Text(zone.name).tag(zone.id)
           }
         }
         HStack {
-          TextField("Название", text: $draft)
-          Button("Добавить") {
+          TextField(L10n.t("nameField"), text: $draft)
+          Button(L10n.t("add")) {
             let result = Domain.createProject(model.store, name: draft, zone: zoneId)
             if result.1 != nil {
               model.commit(result.0)
@@ -593,7 +595,12 @@ struct ProjectListView: View {
         }
       }
     }
-    .navigationTitle("Проекты")
+    .navigationTitle(L10n.t("projects"))
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        LanguageToggle()
+      }
+    }
     .onAppear {
       if let first = Domain.listZones(model.store).first { zoneId = first.id }
     }
@@ -626,6 +633,32 @@ extension Color {
       blue: Double(int & 0xFF) / 255,
       opacity: Double((int >> 24) & 0xFF) / 255
     )
+  }
+}
+
+struct LanguageToggle: View {
+  @Environment(AppModel.self) private var model
+
+  var body: some View {
+    HStack(spacing: 0) {
+      chip("RU", "ru")
+      chip("EN", "en")
+    }
+    .padding(2)
+    .background(Color.white.opacity(0.08), in: Capsule())
+  }
+
+  private func chip(_ label: String, _ code: String) -> some View {
+    let on = model.locale == code
+    return Button(label) {
+      model.setLocale(code)
+    }
+    .font(.caption2.weight(.bold))
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .background(on ? Color.white.opacity(0.16) : Color.clear, in: Capsule())
+    .foregroundStyle(on ? Color.white : Color.secondary)
+    .buttonStyle(.plain)
   }
 }
 

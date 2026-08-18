@@ -22,11 +22,11 @@ final class LanSync: @unchecked Sendable {
   func start() {
     startListener()
     startBrowser()
-    onStatus?("Ждём Mac в Wi‑Fi")
+    onStatus?(L10n.t("waitingMac"))
   }
 
   func refresh(_ store: Store) {
-    onStatus?("Ищем Mac…")
+    onStatus?(L10n.t("lookingMac"))
     startBrowser()
     push(store)
   }
@@ -42,7 +42,7 @@ final class LanSync: @unchecked Sendable {
     queue.async { [weak self] in
       guard let self else { return }
       if self.peerEndpoints.isEmpty {
-        self.onStatus?("Ждём Mac в Wi‑Fi")
+        self.onStatus?(L10n.t("waitingMac"))
       }
       for endpoint in self.peerEndpoints {
         self.handle(NWConnection(to: endpoint, using: Self.tcp), outbound: store)
@@ -72,13 +72,13 @@ final class LanSync: @unchecked Sendable {
       }
       listener.stateUpdateHandler = { [weak self] state in
         if case .failed(let error) = state {
-          self?.onStatus?("Сеть: \(error.localizedDescription)")
+          self?.onStatus?(L10n.t("networkErr", ["error": error.localizedDescription]))
         }
       }
       listener.start(queue: queue)
       self.listener = listener
     } catch {
-      onStatus?("Порт занят")
+      onStatus?(L10n.t("portBusy"))
     }
   }
 
@@ -93,16 +93,16 @@ final class LanSync: @unchecked Sendable {
         return result.endpoint
       }
       if self.peerEndpoints.isEmpty {
-        self.onStatus?("Ждём Mac в Wi‑Fi")
+        self.onStatus?(L10n.t("waitingMac"))
         return
       }
-      self.onStatus?("Нашли Mac, соединяем…")
+      self.onStatus?(L10n.t("foundMac"))
       for endpoint in self.peerEndpoints {
         self.handle(NWConnection(to: endpoint, using: Self.tcp), outbound: StoreFile.load())
       }
     }
     browser.stateUpdateHandler = { [weak self] state in
-      if case .failed = state { self?.onStatus?("Поиск Mac упал") }
+      if case .failed = state { self?.onStatus?(L10n.t("browseFail")) }
     }
     browser.start(queue: queue)
     self.browser = browser
@@ -121,7 +121,7 @@ final class LanSync: @unchecked Sendable {
           self.receive(on: connection)
         }
       case .failed(let error):
-        self.onStatus?("Нет связи с Mac")
+        self.onStatus?(L10n.t("noMacLink"))
         print("[lan] failed", error)
         connection.cancel()
       case .waiting(let error):
@@ -146,7 +146,7 @@ final class LanSync: @unchecked Sendable {
       }
       connection.receive(minimumIncompleteLength: length, maximumLength: length) { payload, _, _, error in
         guard let payload, payload.count == length, error == nil else {
-          self.onStatus?("Синк оборвался")
+          self.onStatus?(L10n.t("syncBroke"))
           connection.cancel()
           return
         }
@@ -164,7 +164,7 @@ final class LanSync: @unchecked Sendable {
       }
       DispatchQueue.main.async {
         let merged = self.onRemote?(envelope.store) ?? envelope.store
-        self.onStatus?("С маком")
+        self.onStatus?(L10n.t("withMac"))
         self.queue.async {
           self.send(store: merged, on: connection) {
             connection.cancel()
@@ -172,7 +172,7 @@ final class LanSync: @unchecked Sendable {
         }
       }
     } catch {
-      onStatus?("Синк: не прочитали Mac")
+      onStatus?(L10n.t("syncBad"))
       print("[lan] decode", error)
       connection.cancel()
     }

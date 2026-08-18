@@ -12,7 +12,6 @@ import {
   patchProject,
   patchTask,
   patchZone,
-  REPEAT,
   setLastView,
   setLaterTask,
   setNextTask,
@@ -20,6 +19,7 @@ import {
 import { iso, startOfWeek, addDaysIso, todayIso } from "../lib/dates.js"
 import { parseTitleDate } from "../lib/parseTitle.js"
 import { defaultsForView, listedTaskIds, nextStep } from "../lib/selectors.js"
+import { keepLocale, locale, repeatCaption, setLocale, t } from "../lib/i18n.js"
 
 const history = []
 
@@ -46,6 +46,14 @@ function snapshot() {
 
 async function persist() {
   ui.store = setLastView(ui.store, ui.view)
+  ui.store = {
+    ...ui.store,
+    settings: {
+      ...ui.store.settings,
+      locale: locale(),
+      updatedAt: Date.now(),
+    },
+  }
   await window.tasksApi.save(ui.store)
 }
 
@@ -64,7 +72,8 @@ export function undo() {
   if (!prev) return false
   ui.store = { ...ui.store, tasks: prev.tasks, projects: prev.projects, settings: prev.settings }
   ui.pendingNext = null
-  flashToast("Отменено")
+  syncLocale(ui.store.settings?.locale)
+  flashToast(t("undone"))
   void persist()
   return true
 }
@@ -141,7 +150,7 @@ export function completeTask(id) {
   ui.selectedId = id
   commit(completeAndRepeat(ui.store, id))
   afterToggle(task)
-  flashToast(task.done ? "Вернули" : (task.repeat ? "Сделано · следующая копия" : "Сделано"))
+  flashToast(task.done ? t("restored") : (task.repeat ? t("completedRepeat") : t("completed")))
 }
 
 export function cycleRepeat(id) {
@@ -151,7 +160,7 @@ export function cycleRepeat(id) {
   const index = Math.max(0, keys.indexOf(task.repeat))
   const next = keys[(index + 1) % keys.length]
   updateTask(id, { repeat: next })
-  flashToast(next ? REPEAT[next].label : "без повтора")
+  flashToast(next ? repeatCaption(next) : t("noRepeat"))
 }
 
 export function pickNext(id) {
@@ -173,7 +182,7 @@ export function addNextFromPrompt(title) {
 export function removeTask(id) {
   commit(deleteTask(ui.store, id))
   if (ui.selectedId === id) ui.selectedId = null
-  flashToast("Удалено · ⌘Z")
+  flashToast(t("deletedUndo"))
 }
 
 export function removeSelected() {
@@ -215,7 +224,7 @@ export function archiveProject(id) {
 
 export function restoreProject(id) {
   changeProject(id, { status: "active" })
-  flashToast("Вернули из архива")
+  flashToast(t("restoredArchive"))
 }
 
 export function removeProject(id) {
@@ -278,16 +287,35 @@ export function shiftZone(id, dir) {
 
 export function removeZone(id) {
   if (listZones(ui.store).length <= 1) {
-    flashToast("Нужен хотя бы один раздел")
+    flashToast(t("needOneZone"))
     return
   }
   commit(deleteZone(ui.store, id))
-  flashToast("Раздел убран, проекты переехали")
+  flashToast(t("zoneRemoved"))
+}
+
+function syncLocale(code) {
+  const next = setLocale(keepLocale(code))
+  document.documentElement.lang = next
+  window.tasksApi.setLocale?.(next)
+  return next
+}
+
+export function applyLocale(code) {
+  const next = syncLocale(code)
+  if (ui.store.settings?.locale === next) return next
+  ui.store = {
+    ...ui.store,
+    settings: { ...ui.store.settings, locale: next, updatedAt: Date.now() },
+  }
+  void persist()
+  return next
 }
 
 export function loadInto(store) {
   ui.store = store
   ui.pendingNext = null
+  syncLocale(store.settings?.locale)
   const last = store.settings?.lastView
   const validProject = last?.type === "project" && store.projects.some((row) => row.id === last.id)
   const views = ["today", "inbox", "upcoming", "all", "archive"]

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Чтобы список с iPhone сел на этот Mac в одном Wi‑Fi.</string>
+	<string>Task Tracker syncs this list with the iPhone on the same Wi‑Fi.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_zadachi._tcp.</string>

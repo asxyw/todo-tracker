@@ -17,6 +17,7 @@ import {
 } from "./controller.js"
 import { bindChrome, focusComposer, render } from "./ui.js"
 import { addDaysIso, todayIso } from "../lib/dates.js"
+import { t } from "../lib/i18n.js"
 
 function isField(target) {
   return target instanceof HTMLElement && target.matches("input, textarea, select, [contenteditable='true']")
@@ -159,7 +160,8 @@ Promise.all([window.tasksApi.load(), window.tasksApi.meta()]).then(([data, meta]
   const versionEl = document.getElementById("app-version")
   versionEl.hidden = false
   versionEl.textContent = meta.version
-  versionEl.title = `Данные: ${meta.dataDir}\nНажмите, чтобы открыть в Finder`
+  versionEl.dataset.dir = meta.dataDir
+  versionEl.title = t("versionTip", { dir: meta.dataDir })
   versionEl.addEventListener("click", () => window.tasksApi.reveal())
   loadInto(data)
   render()

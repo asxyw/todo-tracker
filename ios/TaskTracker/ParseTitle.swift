@@ -16,9 +16,9 @@ enum ParseTitle {
     if raw.isEmpty { return ("", nil) }
 
     if let hit = take(raw, pattern: word("сегодня|today"), due: { _ in Dates.todayIso() })
-      ?? take(raw, pattern: word("послезавтра"), due: { _ in Dates.addDaysIso(Dates.todayIso(), days: 2) })
+      ?? take(raw, pattern: word("послезавтра|day after tomorrow"), due: { _ in Dates.addDaysIso(Dates.todayIso(), days: 2) })
       ?? take(raw, pattern: word("завтра|tomorrow"), due: { _ in Dates.addDaysIso(Dates.todayIso(), days: 1) })
-      ?? take(raw, pattern: #"\+(\d+)\s*д(?:ен(?:ь|я|ей)?)?(?![\\p{L}\\p{N}])"#, options: [.caseInsensitive], due: { m in
+      ?? take(raw, pattern: #"\+(\d+)\s*(?:d|д(?:ен(?:ь|я|ей)?)?)(?![\\p{L}\\p{N}])"#, options: [.caseInsensitive], due: { m in
         Dates.addDaysIso(Dates.todayIso(), days: Int(m) ?? 0)
       }, group: 1)
       ?? takeDate(raw)

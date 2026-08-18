@@ -1,5 +1,6 @@
 import { formatChip, formatLong, iso, parseIso, todayIso } from "./dates.js"
 import { isFocusProject, listZones, zoneById } from "./domain.js"
+import { localeTag, t } from "./i18n.js"
 
 export function projectById(store, id) {
   return store.projects.find((row) => row.id === id)
@@ -52,14 +53,14 @@ export function isTodayTask(store, task) {
 }
 
 export function defaultsForView(view, store) {
-  if (view.type === "today") return { projectId: null, due: todayIso(), label: "Сегодня" }
-  if (view.type === "inbox") return { projectId: null, due: null, label: "Входящие" }
-  if (view.type === "upcoming") return { projectId: null, due: view.date, label: `Предстоящие · ${formatChip(view.date)}` }
+  if (view.type === "today") return { projectId: null, due: todayIso(), label: t("today") }
+  if (view.type === "inbox") return { projectId: null, due: null, label: t("inbox") }
+  if (view.type === "upcoming") return { projectId: null, due: view.date, label: t("upcomingWith", { label: formatChip(view.date) }) }
   if (view.type === "project") {
     const project = store ? projectById(store, view.id) : null
-    return { projectId: view.id, due: null, label: project?.name || "этот проект" }
+    return { projectId: view.id, due: null, label: project?.name || t("thisProject") }
   }
-  return { projectId: null, due: null, label: "Входящие" }
+  return { projectId: null, due: null, label: t("inbox") }
 }
 
 export function visibleTasks(store, view, query = "") {
@@ -166,24 +167,24 @@ export function groupTasks(store, view, tasks, query = "") {
 
   for (const task of tasks) {
     if (task.done) {
-      const title = view.type === "today" ? "Выполнено сегодня" : "Выполненные"
+      const title = view.type === "today" ? t("doneToday") : t("done")
       ensure("done", title, "done", false).items.push(task)
       continue
     }
     if (view.type === "project" && !query.trim()) {
-      if (task.later) ensure("later", "Не сегодня", "", true).items.push(task)
-      else if (task.next) ensure("next", "Следующий шаг", "next").items.push(task)
+      if (task.later) ensure("later", t("notToday"), "", true).items.push(task)
+      else if (task.next) ensure("next", t("nextStep"), "next").items.push(task)
       else if (task.due) ensure(`d-${task.due}`, formatChip(task.due), "").items.push(task)
-      else ensure("active", "Дальше", "").items.push(task)
+      else ensure("active", t("further"), "").items.push(task)
       continue
     }
     if (asAll) {
-      if (!task.projectId) ensure("inbox", "Входящие", "").items.push(task)
+      if (!task.projectId) ensure("inbox", t("inbox"), "").items.push(task)
       else {
         const project = projectById(store, task.projectId)
         const zone = zoneById(store, project?.zone)
         const prefix = zone ? `${zone.name} · ` : ""
-        ensure(`p-${task.projectId}`, `${prefix}${project?.name || "Проект"}`, "").items.push(task)
+        ensure(`p-${task.projectId}`, `${prefix}${project?.name || t("project")}`, "").items.push(task)
       }
       continue
     }
@@ -191,23 +192,23 @@ export function groupTasks(store, view, tasks, query = "") {
       const project = task.projectId ? projectById(store, task.projectId) : null
       if (isFocusProject(store, project)) {
         const zone = zoneById(store, project.zone)
-        ensure(`focus-${project.zone}`, zone?.name || "В работе", "dev").items.push(task)
+        ensure(`focus-${project.zone}`, zone?.name || t("inProgress"), "dev").items.push(task)
         continue
       }
-      if (task.due < today) ensure("overdue", "Просрочено", "overdue").items.push(task)
+      if (task.due < today) ensure("overdue", t("overdue"), "overdue").items.push(task)
       else {
         const zone = zoneById(store, project?.zone)
-        ensure(`today-${project?.zone || "none"}`, zone?.name || "На сегодня", "today").items.push(task)
+        ensure(`today-${project?.zone || "none"}`, zone?.name || t("forToday"), "today").items.push(task)
       }
       continue
     }
     if (view.type === "upcoming") {
-      if (!task.due) ensure("none", "Без даты", "", true).items.push(task)
+      if (!task.due) ensure("none", t("noDate"), "", true).items.push(task)
       else ensure(`d-${task.due}`, formatChip(task.due), "").items.push(task)
       continue
     }
-    if (task.later) ensure("later", "Не сегодня", "", true).items.push(task)
-    else if (!task.due) ensure("none", "Без даты", "", view.type === "upcoming").items.push(task)
+    if (task.later) ensure("later", t("notToday"), "", true).items.push(task)
+    else if (!task.due) ensure("none", t("noDate"), "", view.type === "upcoming").items.push(task)
     else ensure(`d-${task.due}`, formatChip(task.due), "").items.push(task)
   }
 
@@ -228,42 +229,46 @@ export function groupTasks(store, view, tasks, query = "") {
 
 export function headerCopy(store, view) {
   if (view.type === "today") {
-    return { kicker: formatLong(new Date()), title: "Сегодня" }
+    return { kicker: formatLong(new Date()), title: t("today") }
   }
   if (view.type === "inbox") {
-    return { kicker: "Ещё не в проекте", title: "Входящие" }
+    return { kicker: t("inboxKicker"), title: t("inbox") }
   }
   if (view.type === "upcoming") {
     const date = view.date ? parseIso(view.date) : new Date()
     return {
-      kicker: new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date),
-      title: "Предстоящие",
+      kicker: new Intl.DateTimeFormat(localeTag(), { month: "long", year: "numeric" }).format(date),
+      title: t("upcoming"),
     }
   }
   if (view.type === "project") {
     const project = projectById(store, view.id)
     const zone = zoneById(store, project?.zone)
     return {
-      kicker: zone?.name || "Проект",
-      title: project?.name || "Проект",
+      kicker: zone?.name || t("project"),
+      title: project?.name || t("project"),
     }
   }
   if (view.type === "settings") {
-    return { kicker: "Управление", title: "Разделы" }
+    return { kicker: t("manage"), title: t("sections") }
   }
   if (view.type === "archive") {
-    return { kicker: "Можно вернуть", title: "Архив" }
+    return { kicker: t("canRestore"), title: t("archive") }
   }
-  return { kicker: "Трекер", title: "Все задачи" }
+  return { kicker: t("tracker"), title: t("allTasks") }
 }
 
-export const emptyCopy = {
-  all: ["Пока нет задач", "Напишите задачу сверху и нажмите Enter."],
-  today: ["День открыт", "Дело с датой останется здесь. Проекты с правилом «один шаг» появятся, когда шаг назначен."],
-  inbox: ["Входящие пусты — так и должно быть", "Сюда — мысли без раздела. Они не лезут в Сегодня, пока не дадите дату или проект."],
-  upcoming: ["Впереди пусто", "Поставьте дату на задаче или выберите день в ленте."],
-  project: ["В проекте пока пусто", "Первая задача станет следующим шагом, если у раздела правило «один шаг»."],
-  settings: ["Разделы", "Добавьте Быт, Бизнес, Клиентов — как вам удобно. Правило одно: даты или один шаг."],
-  archive: ["Архив пуст", "Скрытые проекты живут здесь. Задачи не удаляются."],
-  search: ["Ничего не нашлось", "Ищем по названиям, заметкам и проектам."],
+export function emptyCopy(type) {
+  const keys = {
+    all: ["emptyAll0", "emptyAll1"],
+    today: ["emptyToday0", "emptyToday1"],
+    inbox: ["emptyInbox0", "emptyInbox1"],
+    upcoming: ["emptyUpcoming0", "emptyUpcoming1"],
+    project: ["emptyProject0", "emptyProject1"],
+    settings: ["emptySettings0", "emptySettings1"],
+    archive: ["emptyArchive0", "emptyArchive1"],
+    search: ["emptySearch0", "emptySearch1"],
+  }
+  const pair = keys[type] || keys.all
+  return [t(pair[0]), t(pair[1])]
 }

@@ -1,3 +1,5 @@
+import { localeTag, t, weekdays } from "./i18n.js"
+
 export function pad(n) {
   return String(n).padStart(2, "0")
 }
@@ -29,20 +31,22 @@ export function startOfWeek(date) {
 }
 
 export function formatLong(date) {
-  return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(date)
+  return new Intl.DateTimeFormat(localeTag(), { weekday: "long", day: "numeric", month: "long" }).format(date)
 }
 
 export function formatChip(value) {
-  if (!value) return "Дата"
+  if (!value) return t("date")
   const today = todayIso()
-  if (value === today) return "Сегодня"
+  if (value === today) return t("today")
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  if (value === iso(tomorrow)) return "Завтра"
-  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(parseIso(value))
+  if (value === iso(tomorrow)) return t("tomorrow")
+  return new Intl.DateTimeFormat(localeTag(), { day: "numeric", month: "short" }).format(parseIso(value))
 }
 
-export const DAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+export function DAYS() {
+  return weekdays()
+}
 
 export function dowIndex(date) {
   return date.getDay() === 0 ? 6 : date.getDay() - 1

@@ -1,11 +1,11 @@
 import Foundation
 
 enum Dates {
-  static let weekdays = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+  static func weekdays() -> [String] { L10n.weekdays() }
 
   private static var calendar: Calendar {
     var cal = Calendar(identifier: .gregorian)
-    cal.locale = Locale(identifier: "ru_RU")
+    cal.locale = Locale(identifier: L10n.tag)
     cal.timeZone = .current
     cal.firstWeekday = 2
     return cal
@@ -36,18 +36,18 @@ enum Dates {
 
   static func formatLong(_ date: Date) -> String {
     let f = DateFormatter()
-    f.locale = Locale(identifier: "ru_RU")
+    f.locale = Locale(identifier: L10n.tag)
     f.setLocalizedDateFormatFromTemplate("EEEEdMMMM")
     return f.string(from: date)
   }
 
   static func formatChip(_ value: String?) -> String {
-    guard let value else { return "Дата" }
+    guard let value else { return L10n.t("date") }
     let today = todayIso()
-    if value == today { return "Сегодня" }
-    if value == addDaysIso(today, days: 1) { return "Завтра" }
+    if value == today { return L10n.t("today") }
+    if value == addDaysIso(today, days: 1) { return L10n.t("tomorrow") }
     let f = DateFormatter()
-    f.locale = Locale(identifier: "ru_RU")
+    f.locale = Locale(identifier: L10n.tag)
     f.setLocalizedDateFormatFromTemplate("dMMM")
     return f.string(from: parseIso(value))
   }
@@ -72,12 +72,12 @@ enum Dates {
 
   static func weekdayShort(_ date: Date) -> String {
     let sundayFirst = calendar.component(.weekday, from: date)
-    return weekdays[(sundayFirst + 5) % 7]
+    return weekdays()[(sundayFirst + 5) % 7]
   }
 
   static func monthYear(_ value: String) -> String {
     let f = DateFormatter()
-    f.locale = Locale(identifier: "ru_RU")
+    f.locale = Locale(identifier: L10n.tag)
     f.setLocalizedDateFormatFromTemplate("MMMMyyyy")
     return f.string(from: parseIso(value))
   }

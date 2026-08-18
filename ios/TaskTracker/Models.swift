@@ -34,7 +34,7 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: CodingKeys.self)
     id = try c.decode(String.self, forKey: .id)
-    name = (try c.decodeIfPresent(String.self, forKey: .name)) ?? "Проект"
+    name = (try c.decodeIfPresent(String.self, forKey: .name)) ?? L10n.t("project")
     color = (try c.decodeIfPresent(String.self, forKey: .color)) ?? "#0a84ff"
     createdAt = (try c.decodeIfPresent(Double.self, forKey: .createdAt)) ?? 0
     updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt)
@@ -97,7 +97,7 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
   init(from decoder: Decoder) throws {
     let c = try decoder.container(keyedBy: CodingKeys.self)
     id = try c.decode(String.self, forKey: .id)
-    title = (try c.decodeIfPresent(String.self, forKey: .title)) ?? "Без названия"
+    title = (try c.decodeIfPresent(String.self, forKey: .title)) ?? L10n.t("untitled")
     note = (try c.decodeIfPresent(String.self, forKey: .note)) ?? ""
     done = (try c.decodeIfPresent(Bool.self, forKey: .done)) ?? false
     due = try c.decodeIfPresent(String.self, forKey: .due)
@@ -141,15 +141,19 @@ struct Settings: Codable, Equatable {
   var lastView: LastView
   var zones: [Zone]
   var deviceId: String?
+  var locale: String?
+  var updatedAt: Double?
 
   enum CodingKeys: String, CodingKey {
-    case lastView, zones, deviceId
+    case lastView, zones, deviceId, locale, updatedAt
   }
 
-  init(lastView: LastView, zones: [Zone], deviceId: String?) {
+  init(lastView: LastView, zones: [Zone], deviceId: String?, locale: String? = "en", updatedAt: Double? = nil) {
     self.lastView = lastView
     self.zones = zones
     self.deviceId = deviceId
+    self.locale = locale
+    self.updatedAt = updatedAt
   }
 
   init(from decoder: Decoder) throws {
@@ -157,6 +161,8 @@ struct Settings: Codable, Equatable {
     lastView = (try c.decodeIfPresent(LastView.self, forKey: .lastView)) ?? LastView(type: "today")
     zones = (try c.decodeIfPresent([Zone].self, forKey: .zones)) ?? []
     deviceId = try c.decodeIfPresent(String.self, forKey: .deviceId)
+    locale = try c.decodeIfPresent(String.self, forKey: .locale)
+    updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt)
   }
 
   func encode(to encoder: Encoder) throws {
@@ -164,6 +170,8 @@ struct Settings: Codable, Equatable {
     try c.encode(lastView, forKey: .lastView)
     try c.encode(zones, forKey: .zones)
     try c.encodeIfPresent(deviceId, forKey: .deviceId)
+    try c.encodeIfPresent(locale, forKey: .locale)
+    try c.encodeIfPresent(updatedAt, forKey: .updatedAt)
   }
 }
 

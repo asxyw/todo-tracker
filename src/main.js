@@ -8,6 +8,7 @@ import { copyFile } from "node:fs/promises"
 import { dataDir, loadStore, saveStore, storePath } from "./main/repository.js"
 import { startLanSync } from "./main/lan-sync.js"
 import { smartCounts } from "./lib/selectors.js"
+import { locale, setLocale, t } from "./lib/i18n.js"
 
 const root = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -36,7 +37,7 @@ function buildMenu() {
       submenu: [
         { role: "about" },
         { type: "separator" },
-        { label: "Разделы и правила…", accelerator: "CmdOrCtrl+,", click: () => sendMenu("settings") },
+        { label: t("settingsShort"), accelerator: "CmdOrCtrl+,", click: () => sendMenu("settings") },
         { type: "separator" },
         { role: "hide" },
         { role: "hideOthers" },
@@ -46,20 +47,20 @@ function buildMenu() {
       ],
     },
     {
-      label: "Файл",
+      label: t("file"),
       submenu: [
-        { label: "Новая задача", accelerator: "CmdOrCtrl+N", click: () => sendMenu("new-task") },
-        { label: "Новый проект", accelerator: "CmdOrCtrl+Shift+L", click: () => sendMenu("new-project") },
-        { label: "Новый проект с шагом", accelerator: "CmdOrCtrl+Shift+D", click: () => sendMenu("new-focus-project") },
+        { label: t("newTask"), accelerator: "CmdOrCtrl+N", click: () => sendMenu("new-task") },
+        { label: t("newProject"), accelerator: "CmdOrCtrl+Shift+L", click: () => sendMenu("new-project") },
+        { label: t("newFocusProject"), accelerator: "CmdOrCtrl+Shift+D", click: () => sendMenu("new-focus-project") },
         { type: "separator" },
-        { label: "Разделы и правила…", click: () => sendMenu("settings") },
+        { label: t("settingsShort"), click: () => sendMenu("settings") },
         { type: "separator" },
         {
-          label: "Показать данные в Finder",
+          label: t("showInFinder"),
           click: () => shell.showItemInFolder(storePath()),
         },
         {
-          label: "Экспортировать копию…",
+          label: t("exportCopy"),
           click: async () => {
             const { filePath, canceled } = await dialog.showSaveDialog(win, {
               defaultPath: "tasks.json",
@@ -77,28 +78,35 @@ function buildMenu() {
     },
     { role: "editMenu" },
     {
-      label: "Вид",
+      label: t("view"),
       submenu: [
-        { label: "Сегодня", accelerator: "CmdOrCtrl+1", click: () => sendMenu("view", "today") },
-        { label: "Предстоящие", accelerator: "CmdOrCtrl+2", click: () => sendMenu("view", "upcoming") },
-        { label: "Входящие", accelerator: "CmdOrCtrl+3", click: () => sendMenu("view", "inbox") },
-        { label: "Все", accelerator: "CmdOrCtrl+4", click: () => sendMenu("view", "all") },
-        { label: "Архив", accelerator: "CmdOrCtrl+5", click: () => sendMenu("view", "archive") },
+        { label: t("today"), accelerator: "CmdOrCtrl+1", click: () => sendMenu("view", "today") },
+        { label: t("upcoming"), accelerator: "CmdOrCtrl+2", click: () => sendMenu("view", "upcoming") },
+        { label: t("inbox"), accelerator: "CmdOrCtrl+3", click: () => sendMenu("view", "inbox") },
+        { label: t("all"), accelerator: "CmdOrCtrl+4", click: () => sendMenu("view", "all") },
+        { label: t("archive"), accelerator: "CmdOrCtrl+5", click: () => sendMenu("view", "archive") },
         { type: "separator" },
-        { label: "Поиск", accelerator: "CmdOrCtrl+F", click: () => sendMenu("search") },
+        { label: t("search"), accelerator: "CmdOrCtrl+F", click: () => sendMenu("search") },
       ],
     },
     {
-      label: "Задача",
+      label: t("taskMenu"),
       submenu: [
-        { label: "Отменить действие", accelerator: "CmdOrCtrl+Shift+Z", click: () => sendMenu("undo") },
+        { label: t("undo"), accelerator: "CmdOrCtrl+Shift+Z", click: () => sendMenu("undo") },
         { type: "separator" },
-        { label: "Отметить выполненной", accelerator: "CmdOrCtrl+Return", click: () => sendMenu("toggle-done") },
-        { label: "Удалить задачу", accelerator: "CmdOrCtrl+Backspace", click: () => sendMenu("delete-task") },
+        { label: t("markDone"), accelerator: "CmdOrCtrl+Return", click: () => sendMenu("toggle-done") },
+        { label: t("deleteTask"), accelerator: "CmdOrCtrl+Backspace", click: () => sendMenu("delete-task") },
       ],
     },
     { role: "windowMenu" },
   ]))
+}
+
+function applyStoreLocale(store) {
+  const prev = locale()
+  const next = setLocale(store?.settings?.locale)
+  if (next !== prev) buildMenu()
+  return next
 }
 
 async function applyNativeGlass(window) {
@@ -171,14 +179,17 @@ app.whenReady().then(async () => {
   if (existsSync(iconPath)) app.dock?.setIcon(nativeImage.createFromPath(iconPath))
   console.log("[задачи]", app.getVersion(), dataDir())
   const store = await loadStore()
+  setLocale(store.settings?.locale)
   updateBadge(store)
   ipcMain.handle("store:load", async () => {
     const next = await loadStore()
+    applyStoreLocale(next)
     updateBadge(next)
     return next
   })
   ipcMain.handle("store:save", async (_e, data) => {
     const next = await saveStore(data)
+    applyStoreLocale(next)
     updateBadge(next)
     return next
   })
@@ -186,12 +197,19 @@ app.whenReady().then(async () => {
   ipcMain.handle("app:reveal", () => {
     shell.showItemInFolder(storePath())
   })
+  ipcMain.handle("app:locale", (_e, code) => {
+    const prev = locale()
+    const next = setLocale(code)
+    if (next !== prev) buildMenu()
+    return next
+  })
   buildMenu()
   createWindow()
   lan = startLanSync({
     load: loadStore,
     save: saveStore,
     onMerged: (merged) => {
+      applyStoreLocale(merged)
       updateBadge(merged)
       win?.webContents.send("store:sync", merged)
     },

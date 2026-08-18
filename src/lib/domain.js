@@ -1,17 +1,18 @@
 import { addDaysIso, todayIso } from "./dates.js"
+import { keepLocale, t } from "./i18n.js"
 
 export const COLORS = ["#0a84ff", "#30d158", "#ff9f0a", "#ff453a", "#bf5af2", "#64d2ff", "#ffd60a", "#ff375f"]
 
 export const REPEAT = {
-  "1d": { days: 1, label: "каждый день" },
-  "7d": { days: 7, label: "каждую неделю" },
-  "1m": { days: 30, label: "каждый месяц" },
+  "1d": { days: 1 },
+  "7d": { days: 7 },
+  "1m": { days: 30 },
 }
 
 export function defaultZones() {
   return [
-    { id: "life", name: "Быт", mode: "dates" },
-    { id: "dev", name: "Разработка", mode: "focus" },
+    { id: "life", name: t("zoneLife"), mode: "dates" },
+    { id: "dev", name: t("zoneDev"), mode: "focus" },
   ]
 }
 
@@ -20,7 +21,7 @@ export function emptyStore() {
     schemaVersion: 6,
     projects: [],
     tasks: [],
-    settings: { lastView: { type: "today" }, zones: defaultZones(), deviceId: uid() },
+    settings: { lastView: { type: "today" }, zones: defaultZones(), deviceId: uid(), locale: "en" },
   }
 }
 
@@ -49,10 +50,10 @@ export function isFocusProject(store, project) {
 
 function normalizeZone(raw, index = 0) {
   const mode = raw?.mode === "focus" ? "focus" : "dates"
-  const fallback = mode === "focus" ? "Работа" : "Жизнь"
+  const fallback = mode === "focus" ? t("fallbackWork") : t("fallbackLife")
   return {
     id: String(raw?.id || uid()),
-    name: String(raw?.name || fallback).trim() || `Раздел ${index + 1}`,
+    name: String(raw?.name || fallback).trim() || t("sectionN", { n: index + 1 }),
     mode,
   }
 }
@@ -62,7 +63,7 @@ function nextOrder(tasks) {
 }
 
 function keepTitle(value) {
-  if (value == null) return "Без названия"
+  if (value == null) return t("untitled")
   return String(value)
 }
 
@@ -92,7 +93,7 @@ export function migrate(raw) {
     return {
       ...project,
       id: project.id || uid(),
-      name: keepTitle(project.name === undefined ? "Проект" : project.name),
+      name: keepTitle(project.name === undefined ? t("project") : project.name),
       color: project.color || COLORS[0],
       createdAt: project.createdAt || Date.now(),
       zone: zoneIds.has(zone) ? zone : fallbackZone,
@@ -129,6 +130,8 @@ export function migrate(raw) {
       lastView: viewType ? { ...lastView, type: viewType } : { type: "today" },
       zones,
       deviceId: raw.settings?.deviceId || uid(),
+      locale: keepLocale(raw.settings?.locale),
+      updatedAt: Number(raw.settings?.updatedAt) || 0,
     },
   }
 }
@@ -360,7 +363,9 @@ export function mergeStores(local, remote) {
   }
   const localStamp = Math.max(0, ...(local.tasks || []).map((task) => task.updatedAt || 0))
   const remoteStamp = Math.max(0, ...(remote.tasks || []).map((task) => task.updatedAt || 0))
-  const newer = remoteStamp > localStamp ? remote.settings : local.settings
+  const localSet = Number(local.settings?.updatedAt) || localStamp
+  const remoteSet = Number(remote.settings?.updatedAt) || remoteStamp
+  const newer = remoteSet > localSet ? remote.settings : local.settings
   return {
     schemaVersion: 6,
     projects: [...projects.values()].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
@@ -369,6 +374,8 @@ export function mergeStores(local, remote) {
       lastView: newer?.lastView || { type: "today" },
       zones: zones.size ? [...zones.values()] : defaultZones(),
       deviceId: local.settings?.deviceId || remote.settings?.deviceId || uid(),
+      locale: keepLocale(newer?.locale || local.settings?.locale || remote.settings?.locale),
+      updatedAt: Math.max(localSet, remoteSet),
     },
   }
 }

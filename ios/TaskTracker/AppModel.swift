@@ -8,12 +8,13 @@ final class AppModel {
   var query = ""
   var pendingNext: String?
   var toast: String?
-  var syncStatus = "Локально"
+  var syncStatus = L10n.t("local")
   var draft = ""
   var chipDue: String? = Dates.todayIso()
   var upcomingDate = Dates.tomorrowIso()
   var weekAnchor = Dates.startOfWeek(Date())
   var editingTask: TaskItem?
+  var locale: String { store.settings.locale == "ru" ? "ru" : "en" }
 
   @ObservationIgnored private var sync: LanSync?
   @ObservationIgnored private var toastStamp: Date?
@@ -21,6 +22,8 @@ final class AppModel {
   init() {
     let loaded = StoreFile.load()
     store = Domain.ensureDeviceId(loaded)
+    L10n.set(store.settings.locale)
+    syncStatus = L10n.t("local")
     StoreFile.save(store)
     startSync()
   }
@@ -37,9 +40,19 @@ final class AppModel {
   }
 
   func commit(_ next: Store) {
-    store = next
+    var store = next
+    store.settings.updatedAt = Domain.now()
+    if store.settings.locale == nil { store.settings.locale = L10n.code }
+    self.store = store
     StoreFile.save(store)
     sync?.push(store)
+  }
+
+  func setLocale(_ code: String) {
+    L10n.set(code)
+    var next = store
+    next.settings.locale = L10n.code
+    commit(next)
   }
 
   func syncChipsToView() {
@@ -110,7 +123,7 @@ final class AppModel {
         pendingNext = projectId
       }
     }
-    flash(task.done ? "Вернули" : "Сделано")
+    flash(task.done ? L10n.t("restored") : L10n.t("completed"))
   }
 
   func later(_ id: String) {
@@ -124,7 +137,7 @@ final class AppModel {
 
   func remove(_ id: String) {
     commit(Domain.deleteTask(store, id: id))
-    flash("Удалено")
+    flash(L10n.t("deleted"))
   }
 
   func pickNext(_ id: String) {
@@ -146,7 +159,7 @@ final class AppModel {
 
   func restoreProject(_ id: String) {
     commit(Domain.patchProject(store, id: id, status: "active"))
-    flash("Вернули из архива")
+    flash(L10n.t("restoredArchive"))
   }
 
   func flash(_ text: String) {
@@ -166,10 +179,8 @@ final class AppModel {
     sync?.refresh(store)
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
       guard let self else { return }
-      let waiting = self.syncStatus.contains("Ждём") || self.syncStatus.contains("Ищем") || self.syncStatus == "Локально"
-      self.flash(waiting
-        ? "Mac не виден. Открой Task Tracker на маке, тот же Wi‑Fi."
-        : "Сверили с Mac")
+      let waiting = [L10n.t("waitingMac"), L10n.t("lookingMac"), L10n.t("local")].contains(self.syncStatus)
+      self.flash(waiting ? L10n.t("macMissing") : L10n.t("syncedMac"))
     }
   }
 
@@ -180,6 +191,7 @@ final class AppModel {
       guard let self else { return remote }
       let merged = StoreMerge.merge(self.store, remote)
       self.store = merged
+      L10n.set(merged.settings.locale)
       StoreFile.save(merged)
       return merged
     }

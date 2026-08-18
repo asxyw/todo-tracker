@@ -118,30 +118,30 @@ enum Selectors {
     let asAll = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || view == .all
     for task in tasks {
       if task.done {
-        let key = ensure("done", title: view == .today ? "Выполнено сегодня" : "Выполненные", tone: "done")
+        let key = ensure("done", title: view == .today ? L10n.t("doneToday") : L10n.t("done"), tone: "done")
         buckets[key]?.items.append(task)
         continue
       }
       if case .project = view, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         if task.later {
-          buckets[ensure("later", title: "Не сегодня")]?.items.append(task)
+          buckets[ensure("later", title: L10n.t("notToday"))]?.items.append(task)
         } else if task.next {
-          buckets[ensure("next", title: "Следующий шаг", tone: "next")]?.items.append(task)
+          buckets[ensure("next", title: L10n.t("nextStep"), tone: "next")]?.items.append(task)
         } else if let due = task.due {
           buckets[ensure("d-\(due)", title: Dates.formatChip(due))]?.items.append(task)
         } else {
-          buckets[ensure("active", title: "Дальше")]?.items.append(task)
+          buckets[ensure("active", title: L10n.t("further"))]?.items.append(task)
         }
         continue
       }
       if asAll {
         if task.projectId == nil {
-          buckets[ensure("inbox", title: "Входящие")]?.items.append(task)
+          buckets[ensure("inbox", title: L10n.t("inbox"))]?.items.append(task)
         } else {
           let project = projectById(store, task.projectId)
           let zone = Domain.zoneById(store, project?.zone)
           let prefix = zone.map { "\($0.name) · " } ?? ""
-          buckets[ensure("p-\(task.projectId ?? "")", title: "\(prefix)\(project?.name ?? "Проект")")]?.items.append(task)
+          buckets[ensure("p-\(task.projectId ?? "")", title: "\(prefix)\(project?.name ?? L10n.t("project"))")]?.items.append(task)
         }
         continue
       }
@@ -149,12 +149,12 @@ enum Selectors {
         let project = projectById(store, task.projectId)
         if Domain.isFocusProject(store, project), let project {
           let zone = Domain.zoneById(store, project.zone)
-          buckets[ensure("focus-\(project.zone)", title: zone?.name ?? "В работе", tone: "dev")]?.items.append(task)
+          buckets[ensure("focus-\(project.zone)", title: zone?.name ?? L10n.t("inProgress"), tone: "dev")]?.items.append(task)
         } else if let due = task.due, due < today {
-          buckets[ensure("overdue", title: "Просрочено", tone: "overdue")]?.items.append(task)
+          buckets[ensure("overdue", title: L10n.t("overdue"), tone: "overdue")]?.items.append(task)
         } else {
           let zone = Domain.zoneById(store, project?.zone)
-          buckets[ensure("today-\(project?.zone ?? "none")", title: zone?.name ?? "На сегодня", tone: "today")]?.items.append(task)
+          buckets[ensure("today-\(project?.zone ?? "none")", title: zone?.name ?? L10n.t("forToday"), tone: "today")]?.items.append(task)
         }
         continue
       }
@@ -163,11 +163,11 @@ enum Selectors {
         continue
       }
       if task.later {
-        buckets[ensure("later", title: "Не сегодня")]?.items.append(task)
+        buckets[ensure("later", title: L10n.t("notToday"))]?.items.append(task)
       } else if let due = task.due {
         buckets[ensure("d-\(due)", title: Dates.formatChip(due))]?.items.append(task)
       } else {
-        buckets[ensure("none", title: "Без даты")]?.items.append(task)
+        buckets[ensure("none", title: L10n.t("noDate"))]?.items.append(task)
       }
     }
     for key in buckets.keys {
@@ -198,29 +198,29 @@ enum Selectors {
 
   static func header(_ store: Store, view: AppView, upcomingDate: String? = nil) -> (kicker: String, title: String) {
     switch view {
-    case .today: return (Dates.formatLong(Date()), "Сегодня")
-    case .inbox: return ("Ещё не в проекте", "Входящие")
+    case .today: return (Dates.formatLong(Date()), L10n.t("today"))
+    case .inbox: return (L10n.t("inboxKicker"), L10n.t("inbox"))
     case .upcoming:
       let date = upcomingDate ?? Dates.tomorrowIso()
-      return (Dates.monthYear(date), "Предстоящие")
-    case .all: return ("Трекер", "Все задачи")
-    case .archive: return ("Можно вернуть", "Архив")
+      return (Dates.monthYear(date), L10n.t("upcoming"))
+    case .all: return (L10n.t("tracker"), L10n.t("allTasks"))
+    case .archive: return (L10n.t("canRestore"), L10n.t("archive"))
     case .project(let id):
       let project = projectById(store, id)
       let zone = Domain.zoneById(store, project?.zone)
-      return (zone?.name ?? "Проект", project?.name ?? "Проект")
+      return (zone?.name ?? L10n.t("project"), project?.name ?? L10n.t("project"))
     }
   }
 
   static func emptyCopy(_ view: AppView, searching: Bool) -> (String, String) {
-    if searching { return ("Ничего не нашлось", "Ищем по названиям, заметкам и проектам.") }
+    if searching { return (L10n.t("emptySearch0"), L10n.t("emptySearch1")) }
     switch view {
-    case .today: return ("День открыт", "Дело с датой останется здесь.")
-    case .inbox: return ("Входящие пусты — так и должно быть", "Мысль без раздела. В Сегодня не лезет.")
-    case .upcoming: return ("Впереди пусто", "Выберите день в ленте или поставьте дату на задаче.")
-    case .project: return ("В проекте пока пусто", "Первая задача станет шагом, если правило «один шаг».")
-    case .archive: return ("Архив пуст", "Скрытые проекты живут здесь.")
-    case .all: return ("Пока нет задач", "Напишите задачу сверху.")
+    case .today: return (L10n.t("emptyToday0"), L10n.t("emptyToday1"))
+    case .inbox: return (L10n.t("emptyInbox0"), L10n.t("emptyInbox1"))
+    case .upcoming: return (L10n.t("emptyUpcoming0"), L10n.t("emptyUpcoming1"))
+    case .project: return (L10n.t("emptyProject0"), L10n.t("emptyProject1"))
+    case .archive: return (L10n.t("emptyArchive0"), L10n.t("emptyArchive1"))
+    case .all: return (L10n.t("emptyAll0"), L10n.t("emptyAll1"))
     }
   }
 }

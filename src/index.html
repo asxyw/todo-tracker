@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"/>
@@ -18,7 +18,11 @@
       <div class="traffic"></div>
       <nav class="smart" id="smart-nav"></nav>
       <div class="zones" id="zones-root"></div>
-      <button type="button" class="new-list" id="open-settings">Разделы и правила</button>
+      <button type="button" class="new-list" id="open-settings">Sections and rules</button>
+      <div class="lang-switch" id="lang-switch" role="group" aria-label="Language">
+        <button type="button" data-lang="ru">RU</button>
+        <button type="button" data-lang="en" class="active">EN</button>
+      </div>
       <button type="button" class="app-version" id="app-version" hidden></button>
     </aside>
     <main class="main">
@@ -28,7 +32,7 @@
           <h1 id="heading"></h1>
         </div>
         <div class="top-meta">
-          <input id="search" type="search" placeholder="Поиск" autocomplete="off"/>
+          <input id="search" type="search" placeholder="Search" autocomplete="off"/>
           <p class="meta" id="meta"></p>
         </div>
       </header>
@@ -37,16 +41,16 @@
       <div class="next-prompt" id="next-prompt" hidden></div>
       <form class="composer" id="composer">
         <span class="plus" aria-hidden="true">+</span>
-        <input id="task-input" type="text" placeholder="Что сделать сегодня?  завтра, пт, +3д" autocomplete="off" maxlength="4000"/>
-        <input id="task-date" type="date" aria-label="Дата"/>
-        <button type="submit" class="add-btn">Добавить</button>
+        <input id="task-input" type="text" placeholder="What to do today?  tomorrow, fri, +3d" autocomplete="off" maxlength="4000"/>
+        <input id="task-date" type="date" aria-label="Date"/>
+        <button type="submit" class="add-btn">Add</button>
       </form>
       <div class="date-chips">
-        <button type="button" id="chip-today">Сегодня</button>
-        <button type="button" id="chip-tomorrow">Завтра</button>
-        <button type="button" id="chip-none">Без даты</button>
+        <button type="button" id="chip-today">Today</button>
+        <button type="button" id="chip-tomorrow">Tomorrow</button>
+        <button type="button" id="chip-none">No date</button>
       </div>
-      <p class="composer-hint" id="composer-hint">Добавить в: Сегодня</p>
+      <p class="composer-hint" id="composer-hint">Add to: Today</p>
       <div class="board" id="board"></div>
     </main>
   </div>

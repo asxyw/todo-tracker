@@ -1,4 +1,4 @@
-import { DAYS, dowIndex, formatChip, iso, todayIso } from "../lib/dates.js"
+import { dowIndex, formatChip, iso, todayIso } from "../lib/dates.js"
 import {
   archivedProjects,
   dormantProjects,
@@ -15,11 +15,13 @@ import {
   smartCounts,
   visibleTasks,
 } from "../lib/selectors.js"
-import { isFocusProject, listZones, REPEAT, zoneById } from "../lib/domain.js"
+import { isFocusProject, listZones, zoneById } from "../lib/domain.js"
+import { locale, t, weekdays, repeatCaption, repeatShort } from "../lib/i18n.js"
 import {
   addNextFromPrompt,
   addProject,
   addZone,
+  applyLocale,
   archiveProject,
   changeProject,
   changeZone,
@@ -61,6 +63,7 @@ const hintEl = document.getElementById("composer-hint")
 const searchInput = document.getElementById("search")
 
 export function render() {
+  applyChrome()
   renderSmart()
   renderZones()
   document.getElementById("open-settings").classList.toggle("active", ui.view.type === "settings")
@@ -73,6 +76,27 @@ export function render() {
   revealSelected()
 }
 
+function applyChrome() {
+  document.documentElement.lang = locale()
+  const settingsBtn = document.getElementById("open-settings")
+  if (settingsBtn) settingsBtn.textContent = t("settings")
+  searchInput.placeholder = t("search")
+  const todayChip = document.getElementById("chip-today")
+  const tomorrowChip = document.getElementById("chip-tomorrow")
+  const noneChip = document.getElementById("chip-none")
+  if (todayChip) todayChip.textContent = t("today")
+  if (tomorrowChip) tomorrowChip.textContent = t("tomorrow")
+  if (noneChip) noneChip.textContent = t("noDate")
+  const addBtn = document.querySelector(".add-btn")
+  if (addBtn) addBtn.textContent = t("add")
+  dateInput.setAttribute("aria-label", t("date"))
+  const versionEl = document.getElementById("app-version")
+  if (versionEl?.dataset.dir) versionEl.title = t("versionTip", { dir: versionEl.dataset.dir })
+  document.getElementById("lang-switch")?.querySelectorAll("[data-lang]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.lang === locale())
+  })
+}
+
 function tomorrowIso() {
   const date = new Date()
   date.setDate(date.getDate() + 1)
@@ -83,11 +107,11 @@ function renderSmart() {
   const counts = smartCounts(ui.store)
   const archived = archivedProjects(ui.store).length
   const items = [
-    { type: "today", label: "Сегодня", icon: "today", glyph: "✦", count: counts.today },
-    { type: "upcoming", label: "Предстоящие", icon: "cal", glyph: "▦", count: counts.upcoming },
-    { type: "inbox", label: "Входящие", icon: "inbox", glyph: "◎", hint: "без дома", count: counts.inbox },
-    { type: "all", label: "Все", icon: "all", glyph: "☰", count: counts.all },
-    { type: "archive", label: "Архив", icon: "all", glyph: "▢", count: archived },
+    { type: "today", label: t("today"), icon: "today", glyph: "✦", count: counts.today },
+    { type: "upcoming", label: t("upcoming"), icon: "cal", glyph: "▦", count: counts.upcoming },
+    { type: "inbox", label: t("inbox"), icon: "inbox", glyph: "◎", hint: t("inboxHint"), count: counts.inbox },
+    { type: "all", label: t("all"), icon: "all", glyph: "☰", count: counts.all },
+    { type: "archive", label: t("archive"), icon: "all", glyph: "▢", count: archived },
   ].filter((item) => {
     if (item.type === "inbox") return counts.inbox || ui.view.type === "inbox"
     if (item.type === "archive") return archived || ui.view.type === "archive"
@@ -122,7 +146,7 @@ function renderZones() {
     const focus = zone.mode === "focus"
     nodes.push(el("div", { class: "block-label" }, [
       el("span", {}, [zone.name]),
-      el("span", { class: "zone-mode" }, [focus ? "шаг" : "даты"]),
+      el("span", { class: "zone-mode" }, [focus ? t("step") : t("dates")]),
     ]))
     const nav = el("nav", { class: "projects" })
     const draft = el("div")
@@ -133,9 +157,9 @@ function renderZones() {
       const paused = project.status === "paused"
       const idle = idleDays(ui.store, project.id)
       const count = focus
-        ? (paused ? "скрыт из Сегодня" : (step ? step.title : "Нужен шаг"))
+        ? (paused ? t("hiddenFromToday") : (step ? step.title : t("needAStep")))
         : (openCount(ui.store, (task) => task.projectId === project.id && !task.later) || "")
-      const pulse = focus && !paused && idle >= 7 ? `${idle} дн. тишина` : null
+      const pulse = focus && !paused && idle >= 7 ? t("idlePulse", { n: idle }) : null
       return el("div", {
         class: `nav-item${active ? " active" : ""}${paused ? " paused" : ""}`,
         onClick: () => {
@@ -153,7 +177,7 @@ function renderZones() {
     })
     if (!items.length) {
       items.push(el("p", { class: "hint" }, [
-        focus ? "В Сегодня — только следующий шаг" : "В Сегодня — дела с датой",
+        focus ? t("focusRule") : t("datesRule"),
       ]))
     }
     nav.replaceChildren(...items)
@@ -166,7 +190,7 @@ function renderZones() {
         ui.addingZone = zone.id
         render()
       },
-    }, ["Новый проект"]))
+    }, [t("newProject")]))
   }
   zonesRoot.replaceChildren(...nodes)
 }
@@ -177,7 +201,7 @@ function renderDraft(zone, mount) {
     return
   }
   const field = el("input", {
-    placeholder: "Название проекта",
+    placeholder: t("projectName"),
     maxlength: "40",
   })
   field.addEventListener("keydown", (event) => {
@@ -192,7 +216,7 @@ function renderDraft(zone, mount) {
     }
   })
   mount.replaceChildren(el("div", { class: "project-draft" }, [
-    el("p", {}, [`Новый проект · ${zone.name}`]),
+    el("p", {}, [t("newProjectZone", { name: zone.name })]),
     field,
   ]))
   queueMicrotask(() => field.focus())
@@ -206,44 +230,44 @@ function renderHeader() {
   document.querySelector(".date-chips").hidden = settings || archive
   hintEl.hidden = settings || archive
   const { kicker, title } = headerCopy(ui.store, ui.view)
-  kickerEl.textContent = searching ? "Везде" : kicker
-  if (document.activeElement !== headingEl) headingEl.textContent = searching ? "Поиск" : title
+  kickerEl.textContent = searching ? t("everywhere") : kicker
+  if (document.activeElement !== headingEl) headingEl.textContent = searching ? t("searchTitle") : title
   headingEl.contentEditable = ui.view.type === "project" && !searching ? "true" : "false"
   const remaining = visibleTasks(ui.store, ui.view, ui.query).filter((task) => !task.done).length
   document.querySelector(".top")?.classList.toggle("today-hero", ui.view.type === "today" && !ui.query)
   document.body.classList.toggle("day-closed", ui.view.type === "today" && !remaining && !ui.query)
   if (settings) {
-    metaEl.textContent = `${listZones(ui.store).length} разделов`
+    metaEl.textContent = t("sectionsCount", { n: listZones(ui.store).length })
     if (document.activeElement !== searchInput) searchInput.value = ui.query
     return
   }
   if (archive) {
-    metaEl.textContent = `${archivedProjects(ui.store).length || "пусто"}`
+    metaEl.textContent = `${archivedProjects(ui.store).length || t("empty")}`
     if (document.activeElement !== searchInput) searchInput.value = ui.query
     return
   }
   metaEl.textContent = searching
-    ? (remaining ? `${remaining}` : "пусто")
+    ? (remaining ? `${remaining}` : t("empty"))
     : remaining
-      ? (ui.view.type === "today" ? `Осталось ${remaining}` : `${remaining} открыто`)
-      : (ui.view.type === "today" ? "День закрыт" : "Всё закрыто")
+      ? (ui.view.type === "today" ? t("remaining", { n: remaining }) : t("openCount", { n: remaining }))
+      : (ui.view.type === "today" ? t("dayClosed") : t("allClosed"))
   const defaults = composerDefaults()
   if (document.activeElement !== dateInput) dateInput.value = defaults.due || ""
-  hintEl.textContent = `Добавить в: ${defaults.label}`
+  hintEl.textContent = t("addTo", { label: defaults.label })
   input.placeholder = ui.view.type === "today"
-    ? "Что сделать сегодня?  завтра, пт, +3д"
+    ? t("placeholderToday")
     : ui.view.type === "inbox"
-      ? "Схватить, разложить потом"
-      : "Новая задача"
+      ? t("placeholderInbox")
+      : t("placeholderTask")
   if (document.activeElement !== searchInput) searchInput.value = ui.query
 }
 
 function confirmRemoveProject(project) {
   const open = ui.store.tasks.filter((task) => task.projectId === project.id && !task.done).length
   const extra = open
-    ? `Открытые задачи (${open}) не удалятся — они перейдут во Входящие.`
-    : "Задач в проекте нет. Пропадёт только сам проект из сайдбара."
-  return window.confirm(`Удалить проект «${project.name}»?\n\n${extra}`)
+    ? t("deleteProjectTasks", { n: open })
+    : t("deleteProjectEmpty")
+  return window.confirm(`${t("deleteProjectTitle", { name: project.name })}\n\n${extra}`)
 }
 
 function renderProjectHead() {
@@ -261,7 +285,7 @@ function renderProjectHead() {
   projectHead.hidden = false
   const goal = el("input", {
     class: "goal",
-    placeholder: "Зачем этот проект",
+    placeholder: t("whyProject"),
     maxlength: "4000",
   })
   goal.value = project.goal || ""
@@ -278,11 +302,11 @@ function renderProjectHead() {
     },
   }, [
     project.status === "done"
-      ? "Вернуть из архива"
-      : project.status === "paused" ? "Вернуть в Сегодня" : "Скрыть из Сегодня",
+      ? t("restoreArchive")
+      : project.status === "paused" ? t("restoreToday") : t("hideToday"),
   ])
   const more = el("details", { class: "project-more" }, [
-    el("summary", {}, ["Ещё"]),
+    el("summary", {}, [t("more")]),
     el("button", {
       type: "button",
       class: "ghost-btn",
@@ -290,7 +314,7 @@ function renderProjectHead() {
         archiveProject(project.id)
         render()
       },
-    }, [project.status === "done" ? "Уже в архиве" : "В архив"]),
+    }, [project.status === "done" ? t("alreadyArchived") : t("toArchive")]),
     el("button", {
       type: "button",
       class: "ghost-btn danger-text",
@@ -299,7 +323,7 @@ function renderProjectHead() {
         removeProject(project.id)
         render()
       },
-    }, ["Удалить проект…"]),
+    }, [t("deleteProject")]),
   ])
   projectHead.replaceChildren(el("div", { class: "project-head-row" }, [goal, pause, more]))
 }
@@ -332,7 +356,7 @@ function renderWeek() {
           render()
         },
       }, [
-        el("span", { class: "dow" }, [DAYS[dowIndex(date)]]),
+        el("span", { class: "dow" }, [weekdays()[dowIndex(date)]]),
         el("span", { class: "num" }, [String(date.getDate())]),
         el("span", { class: "mark" }),
       ])
@@ -353,7 +377,7 @@ function renderTask(task) {
   const inProjectView = ui.view.type === "project"
   const project = task.projectId ? projectById(ui.store, task.projectId) : null
   const focus = inProject && isFocusProject(ui.store, project)
-  const repeatLabel = task.repeat === "1d" ? "день" : task.repeat === "7d" ? "нед" : task.repeat === "1m" ? "мес" : "повтор"
+  const repeatLabel = repeatShort(task.repeat)
   const row = el("div", {
     class: `task${task.done ? " done" : ""}${task.next ? " next" : ""}${ui.selectedId === task.id ? " selected" : ""}${task.note ? " has-note" : ""}`,
     dataset: { id: task.id },
@@ -366,7 +390,7 @@ function renderTask(task) {
     el("button", {
       type: "button",
       class: `check${task.done ? " on" : ""}`,
-      "aria-label": task.done ? "Вернуть в открытые" : "Отметить сделанной",
+      "aria-label": task.done ? t("markOpen") : t("markComplete"),
       "aria-pressed": String(task.done),
       onClick: (event) => {
         event.preventDefault()
@@ -381,13 +405,13 @@ function renderTask(task) {
     }, [formatChip(task.due)]),
     el("div", { class: "tools" }, [
       inProjectView ? null : el("select", { class: "proj" }, [
-        el("option", { value: "" }, ["Входящие"]),
+        el("option", { value: "" }, [t("inbox")]),
         ...ui.store.projects.filter((row) => row.status !== "done").map((row) => {
           const zone = zoneById(ui.store, row.zone)
           return el("option", { value: row.id }, [`${zone ? `${zone.name} · ` : ""}${row.name}`])
         }),
       ]),
-      inProjectView && focus ? el("span", { class: "proj-label" }, ["шаг"]) : null,
+      inProjectView && focus ? el("span", { class: "proj-label" }, [t("step")]) : null,
       el("input", {
         class: `chip${late ? " late" : isToday ? " today" : ""}`,
         type: "date",
@@ -397,33 +421,33 @@ function renderTask(task) {
       focus ? el("button", {
         type: "button",
         class: `mark-btn${task.next ? " on" : ""}`,
-        title: "Следующий шаг в Сегодня",
+        title: t("nextToday"),
         onClick: (event) => {
           event.stopPropagation()
           pinNext(task.id)
           render()
         },
-      }, [task.next ? "шаг" : "следующим"]) : null,
+      }, [task.next ? t("step") : t("next")]) : null,
       el("button", {
         type: "button",
         class: `mark-btn${task.later ? " on" : ""}`,
-        title: "Убрать из Сегодня",
+        title: t("hideFromToday"),
         onClick: (event) => {
           event.stopPropagation()
           markLater(task.id)
           render()
         },
-      }, ["не сегодня"]),
+      }, [t("laterChip")]),
       task.later ? el("input", {
         class: "chip until",
         type: "date",
         value: task.laterUntil || "",
-        title: "Вернуть в этот день",
+        title: t("backToDay"),
       }) : null,
       el("button", {
         type: "button",
         class: `mark-btn${task.repeat ? " on" : ""}`,
-        title: task.repeat ? REPEAT[task.repeat].label : "Повтор",
+        title: task.repeat ? repeatCaption(task.repeat) : t("repeat"),
         onClick: (event) => {
           event.stopPropagation()
           cycleRepeat(task.id)
@@ -433,7 +457,7 @@ function renderTask(task) {
       el("button", {
         type: "button",
         class: "kill-task",
-        title: "Удалить",
+        title: t("remove"),
         onClick: (event) => {
           event.stopPropagation()
           removeTask(task.id)
@@ -443,7 +467,7 @@ function renderTask(task) {
     ]),
     el("input", {
       class: "task-note",
-      placeholder: "ссылка или короткая заметка",
+      placeholder: t("notePlaceholder"),
       maxlength: "4000",
     }),
   ])
@@ -520,7 +544,7 @@ function renderNeedStep() {
     },
   }, [
     el("span", { class: "dot", style: { background: project.color, "--c": project.color } }),
-    el("span", {}, [`${project.name} — назначить шаг`]),
+    el("span", {}, [t("assignStep", { name: project.name })]),
   ]))
   const needing = new Set(focusProjectsNeedingStep(ui.store).map((project) => project.id))
   const stale = dormantProjects(ui.store).find((row) => !needing.has(row.project.id))
@@ -534,7 +558,7 @@ function renderNeedStep() {
       },
     }, [
       el("span", { class: "dot", style: { background: stale.project.color, "--c": stale.project.color } }),
-      el("span", {}, [`${stale.project.name} — ${stale.idle} дн. тишина`]),
+      el("span", {}, [t("idleDays", { name: stale.project.name, n: stale.idle })]),
     ]))
   }
   return need
@@ -555,8 +579,8 @@ function renderSettings() {
       render()
     })
     const mode = el("select", { class: "zone-rule" }, [
-      el("option", { value: "dates" }, ["По датам — в Сегодня, если стоит день"]),
-      el("option", { value: "focus" }, ["Один шаг — в Сегодня только следующее действие"]),
+      el("option", { value: "dates" }, [t("modeDates")]),
+      el("option", { value: "focus" }, [t("modeFocus")]),
     ])
     mode.value = zone.mode
     mode.addEventListener("change", () => {
@@ -583,26 +607,26 @@ function renderSettings() {
           type: "button",
           class: "ghost-btn danger-text",
           onClick: () => { removeZone(zone.id); render() },
-        }, ["Убрать"]),
+        }, [t("removeZone")]),
       ]),
     ])
   })
   boardEl.replaceChildren(
     el("p", { class: "settings-lead" }, [
-      "Разделы — это не папки ради папок. У каждого правило, как задачи попадают в Сегодня. Клиенту не нужны «Быт» и «IT» — поставьте «Бизнес», «Клиенты», «Личное».",
+      t("settingsLead"),
     ]),
     ...cards,
     el("div", { class: "zone-add" }, [
       el("button", {
         type: "button",
         class: "ghost-btn",
-        onClick: () => { addZone("Бизнес", "dates"); render() },
-      }, ["+ По датам"]),
+        onClick: () => { addZone(t("presetDates"), "dates"); render() },
+      }, [t("addByDates")]),
       el("button", {
         type: "button",
         class: "ghost-btn",
-        onClick: () => { addZone("Клиенты", "focus"); render() },
-      }, ["+ Один шаг"]),
+        onClick: () => { addZone(t("presetFocus"), "focus"); render() },
+      }, [t("addOneStep")]),
     ]),
   )
 }
@@ -610,7 +634,7 @@ function renderSettings() {
 function renderArchive() {
   const archived = archivedProjects(ui.store)
   if (!archived.length) {
-    const copy = emptyCopy.archive
+    const copy = emptyCopy("archive")
     boardEl.replaceChildren(el("div", { class: "empty" }, [
       el("strong", {}, [copy[0]]),
       el("span", {}, [copy[1]]),
@@ -630,7 +654,7 @@ function renderArchive() {
         },
       }, [
         el("span", {}, [project.name]),
-        el("span", { class: "nav-sub" }, [open ? `${open} открыто` : (project.goal || "Задачи на месте")]),
+        el("span", { class: "nav-sub" }, [open ? t("openLabel", { n: open }) : (project.goal || t("tasksInPlace"))]),
       ]),
       el("button", {
         type: "button",
@@ -639,7 +663,7 @@ function renderArchive() {
           restoreProject(project.id)
           render()
         },
-      }, ["Вернуть"]),
+      }, [t("restore")]),
     ])
   }))
 }
@@ -656,7 +680,7 @@ function renderBoard() {
   const tasks = visibleTasks(ui.store, ui.view, ui.query)
   const need = renderNeedStep()
   if (!tasks.length && !need.length) {
-    const copy = ui.query.trim() ? emptyCopy.search : (emptyCopy[ui.view.type] || emptyCopy.all)
+    const copy = ui.query.trim() ? emptyCopy("search") : emptyCopy(ui.view.type)
     boardEl.replaceChildren(el("div", { class: "empty" }, [
       el("strong", {}, [copy[0]]),
       el("span", {}, [copy[1]]),
@@ -667,7 +691,7 @@ function renderBoard() {
   const nodes = []
   if (need.length) {
     nodes.push(el("section", { class: "group" }, [
-      el("h2", { class: "dev" }, [`Нужен шаг · ${need.length}`]),
+      el("h2", { class: "dev" }, [t("needStep", { n: need.length })]),
       el("div", { class: "need-list" }, need),
     ]))
   }
@@ -712,7 +736,7 @@ function renderNextPrompt() {
   nextPromptEl.hidden = false
   const field = el("input", {
     class: "next-field",
-    placeholder: "Или напишите новый шаг",
+    placeholder: t("writeStep"),
     maxlength: "4000",
   })
   field.addEventListener("keydown", (event) => {
@@ -726,7 +750,7 @@ function renderNextPrompt() {
     }
   })
   nextPromptEl.replaceChildren(
-    el("p", {}, [`Следующий шаг по «${project.name}»?`]),
+    el("p", {}, [t("nextFor", { name: project.name })]),
     el("div", { class: "next-choices" }, [
       ...candidates.map((task) => el("button", {
         type: "button",
@@ -742,10 +766,10 @@ function renderNextPrompt() {
         class: "ghost-btn",
         onClick: () => {
           skipNextPrompt()
-          flashToast("Без шага — проект ждёт")
+          flashToast(t("skipStepToast"))
           render()
         },
-      }, ["Пока без шага"]),
+      }, [t("skipStep")]),
     ]),
   )
   queueMicrotask(() => field.focus())
@@ -799,6 +823,12 @@ export function bindChrome({ onAdd, onSearch }) {
   searchInput.addEventListener("input", () => onSearch(searchInput.value))
   document.getElementById("open-settings").addEventListener("click", () => {
     setView({ type: "settings" })
+    render()
+  })
+  document.getElementById("lang-switch")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-lang]")
+    if (!btn) return
+    applyLocale(btn.dataset.lang)
     render()
   })
   headingEl.addEventListener("keydown", (event) => {

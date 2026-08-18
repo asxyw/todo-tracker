@@ -1,6 +1,6 @@
 # Task Tracker
 
-Local task list for macOS and iOS. Russian UI. Data stays on the device as JSON. Optional sync over local Wi‑Fi between the Mac app and the iPhone app. No cloud account.
+A personal task list for Mac and iPhone. English by default, with a **RU | EN** switch. Today, inbox, dated tasks, and one-step projects. Data is a JSON file on the device. Optional sync over local Wi‑Fi. No account, no cloud.
 
 ## Install the Mac app
 
@@ -22,9 +22,15 @@ Tasks are stored at `~/Library/Application Support/Задачи/tasks.json`. Not
 
 ## iOS
 
-There is no sideload build in Releases. Open `ios/TaskTracker.xcodeproj` in Xcode, choose your Team under Signing, and run on an iPhone. Allow Local Network on the phone. Keep the Mac app open on the same Wi‑Fi to sync.
+Download `TaskTracker-ios.zip` from [Releases](https://github.com/asxyw/todo-tracker/releases) if you just want the Xcode project, or clone this repo. Open `ios/TaskTracker.xcodeproj`, choose your Team under Signing, and run on an iPhone.
 
-## Build from source
+Allow Local Network on the phone. Keep the Mac app open on the same Wi‑Fi to sync.
+
+There is no App Store build. Apple will not install an unsigned `.ipa` from GitHub.
+
+## Source
+
+This repository is the source: Electron app in `src/`, iPhone app in `ios/`.
 
 Requires Node.js 22+ and macOS.
 
