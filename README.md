@@ -22,11 +22,11 @@ Tasks are stored at `~/Library/Application Support/Задачи/tasks.json`. Not
 
 ## iOS
 
-Download `TaskTracker-ios.zip` from [Releases](https://github.com/asxyw/todo-tracker/releases) if you just want the Xcode project, or clone this repo. Open `ios/TaskTracker.xcodeproj`, choose your Team under Signing, and run on an iPhone.
+[Releases](https://github.com/asxyw/todo-tracker/releases) include `TaskTracker-ios.ipa`. That file is a **development** build: it only installs on iPhones already on the signing team (Xcode / Apple Configurator). It is not an App Store or TestFlight build. A random iPhone cannot sideload it from GitHub.
+
+Everyone else: clone this repo, open `ios/TaskTracker.xcodeproj` in Xcode, choose your Team under Signing, and run on the phone.
 
 Allow Local Network on the phone. Keep the Mac app open on the same Wi‑Fi to sync.
-
-There is no App Store build. Apple will not install an unsigned `.ipa` from GitHub.
 
 ## Source
 
