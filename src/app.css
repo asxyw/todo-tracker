@@ -20,6 +20,7 @@
 html, body {
   margin: 0;
   height: 100%;
+  overflow: hidden;
   background: transparent;
   color: var(--text);
   font: 14px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -32,8 +33,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .shell {
   display: grid;
-  grid-template-columns: 232px 1fr;
-  height: 100%;
+  grid-template-columns: 216px 1fr;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   animation: glass-in 0.28s ease;
 }
 
@@ -46,8 +49,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: relative;
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
-  padding: 52px 12px 14px;
+  padding: 0 10px 10px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015)),
     var(--glass);
@@ -58,7 +62,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   -webkit-app-region: drag;
 }
 
-.traffic { height: 8px; }
+.titlebar-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  height: 52px;
+  padding-left: 72px;
+}
 
 html.native-glass .sidebar,
 html.native-glass .main {
@@ -86,7 +97,9 @@ html.native-glass .composer {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 52px 28px 24px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 52px 28px 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 36%),
     var(--glass-2);
@@ -95,25 +108,46 @@ html.native-glass .composer {
   -webkit-app-region: drag;
 }
 
-nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .lang-switch, .date-chips, .next-prompt, .toast, h1, button, input, select, textarea {
+.top,
+.project-head,
+.week,
+.next-prompt,
+.composer,
+.date-chips,
+.composer-hint,
+#open-settings {
+  flex-shrink: 0;
+}
+
+#open-settings {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .lang-switch, .sidebar-chrome, .date-chips, .next-prompt, .toast, h1, button, input, select, textarea {
   -webkit-app-region: no-drag;
 }
 
 .smart, .projects {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  flex-shrink: 0;
 }
+
+.smart { padding-top: 6px; }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   margin: 0;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 9px;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
   text-align: left;
@@ -131,7 +165,7 @@ div.nav-item { cursor: pointer; }
 
 .nav-item .count {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mute);
   font-variant-numeric: tabular-nums;
 }
@@ -139,12 +173,12 @@ div.nav-item { cursor: pointer; }
 .nav-item.active .count { color: rgba(255, 255, 255, 0.72); }
 
 .icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
-  border-radius: 7px;
-  font-size: 12px;
+  border-radius: 6px;
+  font-size: 11px;
   background: transparent;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -165,14 +199,19 @@ div.nav-item { cursor: pointer; }
 }
 
 .zones {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
 }
 
-.zones .block-label:first-child { margin-top: 16px; }
+.zones .block-label:first-child { margin-top: 10px; }
 
 .nav-copy {
   display: flex;
@@ -188,7 +227,7 @@ div.nav-item { cursor: pointer; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 140px;
+  max-width: 124px;
 }
 
 .nav-item.paused { opacity: 0.45; }
@@ -197,7 +236,7 @@ div.nav-item { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 22px 8px 8px;
+  margin: 14px 6px 4px;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.12em;
@@ -239,11 +278,11 @@ div.nav-item { cursor: pointer; }
 }
 
 .new-list {
-  margin-top: 8px;
+  margin-top: 6px;
   width: 100%;
   border: 0;
-  border-radius: 11px;
-  padding: 9px 10px;
+  border-radius: 9px;
+  padding: 7px 8px;
   background: transparent;
   color: var(--mute);
   text-align: left;
@@ -268,24 +307,34 @@ div.nav-item { cursor: pointer; }
 }
 
 .app-version {
-  margin: 12px 8px 0;
+  margin: 0;
   border: 0;
-  padding: 0;
+  padding: 0 2px;
   background: none;
   font-size: 11px;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
-  text-align: left;
+  text-align: right;
   cursor: pointer;
 }
 
 .app-version:hover { color: var(--mute); }
 
+.sidebar-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
 .lang-switch {
   display: flex;
   gap: 2px;
-  margin: 10px 8px 0;
+  margin: 0;
   padding: 2px;
   width: fit-content;
   border-radius: 8px;
@@ -293,10 +342,10 @@ div.nav-item { cursor: pointer; }
 }
 
 .lang-switch button {
-  min-width: 36px;
+  min-width: 28px;
   border: 0;
   border-radius: 6px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   background: transparent;
   color: var(--mute);
   font-size: 11px;
@@ -564,7 +613,7 @@ h1[contenteditable="true"] {
 .add-btn:hover { filter: brightness(1.08); }
 
 .composer-hint {
-  margin: 0 4px 16px;
+  margin: 0 4px 10px;
   font-size: 11px;
   color: var(--mute);
 }
@@ -658,9 +707,11 @@ h1[contenteditable="true"] {
 }
 
 .board {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 4px;
 }
 

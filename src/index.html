@@ -15,15 +15,18 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="traffic"></div>
+      <div class="titlebar-row">
+        <div class="sidebar-chrome">
+          <div class="lang-switch" id="lang-switch" role="group" aria-label="Language">
+            <button type="button" data-lang="ru">RU</button>
+            <button type="button" data-lang="en" class="active">EN</button>
+          </div>
+          <button type="button" class="app-version" id="app-version" hidden></button>
+        </div>
+      </div>
       <nav class="smart" id="smart-nav"></nav>
       <div class="zones" id="zones-root"></div>
       <button type="button" class="new-list" id="open-settings">Sections and rules</button>
-      <div class="lang-switch" id="lang-switch" role="group" aria-label="Language">
-        <button type="button" data-lang="ru">RU</button>
-        <button type="button" data-lang="en" class="active">EN</button>
-      </div>
-      <button type="button" class="app-version" id="app-version" hidden></button>
     </aside>
     <main class="main">
       <header class="top">
