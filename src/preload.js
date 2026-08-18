@@ -12,4 +12,7 @@ contextBridge.exposeInMainWorld("tasksApi", {
   onSync: (handler) => {
     ipcRenderer.on("store:sync", (_event, payload) => handler(payload))
   },
+  onFullscreen: (handler) => {
+    ipcRenderer.on("chrome:fullscreen", (_event, on) => handler(on))
+  },
 })

@@ -15,7 +15,7 @@ import {
   smartCounts,
   visibleTasks,
 } from "../lib/selectors.js"
-import { isFocusProject, listZones, zoneById } from "../lib/domain.js"
+import { activeUrgent, isFocusProject, listZones, syncDiffCount, zoneById } from "../lib/domain.js"
 import { locale, t, weekdays, repeatCaption, repeatShort } from "../lib/i18n.js"
 import {
   addNextFromPrompt,
@@ -26,9 +26,11 @@ import {
   changeProject,
   changeZone,
   completeTask,
+  clearUrgentTask,
   composerDefaults,
   cycleRepeat,
   flashToast,
+  keepSyncItem,
   markLater,
   pickNext,
   pinNext,
@@ -67,11 +69,14 @@ export function render() {
   renderSmart()
   renderZones()
   document.getElementById("open-settings").classList.toggle("active", ui.view.type === "settings")
+  document.getElementById("sync-open")?.classList.toggle("active", ui.view.type === "sync")
+  document.getElementById("sync-open")?.classList.toggle("has-changes", Boolean(syncDiffCount(ui.syncDiff)))
   renderHeader()
   renderProjectHead()
   renderWeek()
   renderNextPrompt()
   renderBoard()
+  renderUrgentBanner()
   renderToast()
   revealSelected()
 }
@@ -80,6 +85,8 @@ function applyChrome() {
   document.documentElement.lang = locale()
   const settingsBtn = document.getElementById("open-settings")
   if (settingsBtn) settingsBtn.textContent = t("settings")
+  const syncBtn = document.getElementById("sync-open")
+  if (syncBtn) syncBtn.textContent = t("syncTitle")
   searchInput.placeholder = t("search")
   const todayChip = document.getElementById("chip-today")
   const tomorrowChip = document.getElementById("chip-tomorrow")
@@ -87,6 +94,19 @@ function applyChrome() {
   if (todayChip) todayChip.textContent = t("today")
   if (tomorrowChip) tomorrowChip.textContent = t("tomorrow")
   if (noneChip) noneChip.textContent = t("noDate")
+  const urgentChips = document.getElementById("urgent-chips")
+  urgentChips?.querySelectorAll("[data-urgent]").forEach((btn) => {
+    const minutes = Number(btn.dataset.urgent)
+    btn.textContent = minutes === 30 ? t("urgent30") : minutes === 60 ? t("urgent1h") : t("urgent2h")
+    btn.classList.toggle("active", ui.urgentMinutes === minutes)
+  })
+  urgentChips?.querySelectorAll("[data-alert]").forEach((btn) => {
+    btn.textContent = btn.dataset.alert === "island" ? t("urgentIsland") : t("urgentPush")
+    btn.classList.toggle("active", ui.urgentMinutes && ui.urgentAlert === btn.dataset.alert)
+    btn.hidden = !ui.urgentMinutes
+  })
+  const urgentClear = document.getElementById("urgent-clear")
+  if (urgentClear) urgentClear.textContent = t("urgentStop")
   const addBtn = document.querySelector(".add-btn")
   if (addBtn) addBtn.textContent = t("add")
   dateInput.setAttribute("aria-label", t("date"))
@@ -101,6 +121,31 @@ function tomorrowIso() {
   const date = new Date()
   date.setDate(date.getDate() + 1)
   return iso(date)
+}
+
+export function formatUrgentLeft(until, now = Date.now()) {
+  const ms = until - now
+  if (ms <= 0) return t("urgentNow")
+  const minutes = Math.max(1, Math.ceil(ms / 60000))
+  if (minutes < 60) return t("urgentMin", { n: minutes })
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest ? t("urgentHourMin", { h: hours, m: rest }) : t("urgentHour", { h: hours })
+}
+
+function renderUrgentBanner() {
+  const banner = document.getElementById("urgent-banner")
+  if (!banner) return
+  const [task] = activeUrgent(ui.store)
+  if (!task) {
+    banner.hidden = true
+    banner.dataset.until = ""
+    return
+  }
+  banner.hidden = false
+  banner.dataset.until = String(task.urgentUntil)
+  document.getElementById("urgent-banner-copy").textContent = task.title
+  document.getElementById("urgent-banner-time").textContent = formatUrgentLeft(task.urgentUntil)
 }
 
 function renderSmart() {
@@ -224,11 +269,13 @@ function renderDraft(zone, mount) {
 
 function renderHeader() {
   const settings = ui.view.type === "settings"
+  const syncing = ui.view.type === "sync"
   const archive = ui.view.type === "archive" && !ui.query.trim()
   const searching = Boolean(ui.query.trim())
-  document.getElementById("composer").hidden = settings || archive
-  document.querySelector(".date-chips").hidden = settings || archive
-  hintEl.hidden = settings || archive
+  document.getElementById("composer").hidden = settings || syncing || archive
+  document.querySelector(".date-chips").hidden = settings || syncing || archive
+  document.getElementById("urgent-chips").hidden = settings || syncing || archive
+  hintEl.hidden = settings || syncing || archive
   const { kicker, title } = headerCopy(ui.store, ui.view)
   kickerEl.textContent = searching ? t("everywhere") : kicker
   if (document.activeElement !== headingEl) headingEl.textContent = searching ? t("searchTitle") : title
@@ -238,6 +285,12 @@ function renderHeader() {
   document.body.classList.toggle("day-closed", ui.view.type === "today" && !remaining && !ui.query)
   if (settings) {
     metaEl.textContent = t("sectionsCount", { n: listZones(ui.store).length })
+    if (document.activeElement !== searchInput) searchInput.value = ui.query
+    return
+  }
+  if (syncing) {
+    const n = syncDiffCount(ui.syncDiff)
+    metaEl.textContent = n ? String(n) : t("empty")
     if (document.activeElement !== searchInput) searchInput.value = ui.query
     return
   }
@@ -631,6 +684,49 @@ function renderSettings() {
   )
 }
 
+function syncGroup(title, rows, kind, keepable) {
+  if (!rows?.length) return []
+  return [
+    el("p", { class: "block-label" }, [el("span", {}, [title])]),
+    ...rows.map((row) => el("div", { class: "sync-row" }, [
+      el("span", { class: "sync-row-title" }, [row.title || t("untitledTask")]),
+      keepable
+        ? el("button", {
+          type: "button",
+          class: "ghost-btn",
+          onClick: () => {
+            keepSyncItem(row, kind)
+            render()
+          },
+        }, [t("syncKeepMac")])
+        : null,
+    ].filter(Boolean))),
+  ]
+}
+
+function renderSync() {
+  const diff = ui.syncDiff
+  const count = syncDiffCount(diff)
+  if (!count) {
+    boardEl.replaceChildren(
+      el("p", { class: "settings-lead" }, [t("syncLead")]),
+      el("p", { class: "sync-quiet" }, [t("syncQuiet")]),
+    )
+    return
+  }
+  boardEl.replaceChildren(
+    el("p", { class: "settings-lead" }, [t("syncLead")]),
+    ...syncGroup(t("syncAddedHere"), diff.addedHere, "task", false),
+    ...syncGroup(t("syncAddedThere"), diff.addedThere, "task", false),
+    ...syncGroup(t("syncDeletedThere"), diff.deletedThere, "task", true),
+    ...syncGroup(t("syncDeletedHere"), diff.deletedHere, "task", false),
+    ...syncGroup(t("syncAddedHere"), diff.addedProjectsHere, "project", false),
+    ...syncGroup(t("syncAddedThere"), diff.addedProjectsThere, "project", false),
+    ...syncGroup(t("syncDeletedThere"), diff.deletedProjectsThere, "project", true),
+    ...syncGroup(t("syncDeletedHere"), diff.deletedProjectsHere, "project", false),
+  )
+}
+
 function renderArchive() {
   const archived = archivedProjects(ui.store)
   if (!archived.length) {
@@ -671,6 +767,10 @@ function renderArchive() {
 function renderBoard() {
   if (ui.view.type === "settings") {
     renderSettings()
+    return
+  }
+  if (ui.view.type === "sync") {
+    renderSync()
     return
   }
   if (ui.view.type === "archive" && !ui.query.trim()) {
@@ -779,11 +879,23 @@ function renderToast() {
   if (!ui.toast) {
     toastEl.hidden = true
     toastEl.textContent = ""
+    toastEl.onclick = null
+    toastEl.classList.remove("is-action")
     return
   }
   toastEl.hidden = false
   toastEl.textContent = ui.toast.text
+  toastEl.classList.toggle("is-action", Boolean(ui.toast.openSync))
   const stamp = ui.toast.at
+  const openSync = ui.toast.openSync
+  toastEl.onclick = openSync
+    ? () => {
+      ui.toast = null
+      toastEl.hidden = true
+      setView({ type: "sync" })
+      render()
+    }
+    : null
   window.setTimeout(() => {
     if (ui.toast?.at === stamp) {
       ui.toast = null
@@ -820,9 +932,33 @@ export function bindChrome({ onAdd, onSearch }) {
     dateInput.value = ""
     input.focus()
   })
+  document.getElementById("urgent-chips")?.addEventListener("click", (event) => {
+    const minutesBtn = event.target.closest("[data-urgent]")
+    if (minutesBtn) {
+      const minutes = Number(minutesBtn.dataset.urgent)
+      ui.urgentMinutes = ui.urgentMinutes === minutes ? null : minutes
+      if (ui.urgentMinutes && !ui.urgentAlert) ui.urgentAlert = "push"
+      render()
+      return
+    }
+    const alertBtn = event.target.closest("[data-alert]")
+    if (!alertBtn || !ui.urgentMinutes) return
+    ui.urgentAlert = alertBtn.dataset.alert
+    render()
+  })
+  document.getElementById("urgent-clear")?.addEventListener("click", () => {
+    const [task] = activeUrgent(ui.store)
+    if (!task) return
+    clearUrgentTask(task.id)
+    render()
+  })
   searchInput.addEventListener("input", () => onSearch(searchInput.value))
   document.getElementById("open-settings").addEventListener("click", () => {
     setView({ type: "settings" })
+    render()
+  })
+  document.getElementById("sync-open")?.addEventListener("click", () => {
+    setView({ type: "sync" })
     render()
   })
   document.getElementById("lang-switch")?.addEventListener("click", (event) => {

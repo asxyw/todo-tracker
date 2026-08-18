@@ -20,6 +20,10 @@ enum StoreMerge {
         projects[project.id] = project
       }
     }
+    let deletedTasks = mergeTaskTombs(local.deleted.tasks + remote.deleted.tasks, live: tasks)
+    let deletedProjects = mergeProjectTombs(local.deleted.projects + remote.deleted.projects, live: projects)
+    for tomb in deletedTasks { tasks.removeValue(forKey: tomb.id) }
+    for tomb in deletedProjects { projects.removeValue(forKey: tomb.id) }
     var zones: [String: Zone] = [:]
     for zone in Domain.listZones(local) + Domain.listZones(remote) {
       if zones[zone.id] == nil { zones[zone.id] = zone }
@@ -30,7 +34,7 @@ enum StoreMerge {
     let remoteSet = remote.settings.updatedAt ?? remoteStamp
     let newerSettings = remoteSet > localSet ? remote.settings : local.settings
     return Store(
-      schemaVersion: 6,
+      schemaVersion: 8,
       projects: Array(projects.values).sorted { $0.createdAt < $1.createdAt },
       tasks: Array(tasks.values).sorted { $0.createdAt > $1.createdAt },
       settings: Settings(
@@ -39,7 +43,42 @@ enum StoreMerge {
         deviceId: local.settings.deviceId ?? remote.settings.deviceId,
         locale: newerSettings.locale ?? local.settings.locale ?? remote.settings.locale ?? "en",
         updatedAt: max(localSet, remoteSet)
-      )
+      ),
+      deleted: Deleted(tasks: deletedTasks, projects: deletedProjects)
     )
+  }
+
+  private static func mergeTaskTombs(_ rows: [DeletedEntry], live: [String: TaskItem]) -> [DeletedEntry] {
+    var tombs: [String: DeletedEntry] = [:]
+    for row in rows {
+      if let existing = tombs[row.id] {
+        if row.deletedAt >= existing.deletedAt { tombs[row.id] = row }
+      } else {
+        tombs[row.id] = row
+      }
+    }
+    for (id, tomb) in tombs {
+      if let task = live[id], task.updatedAt > tomb.deletedAt {
+        tombs.removeValue(forKey: id)
+      }
+    }
+    return Array(tombs.values).sorted { $0.deletedAt > $1.deletedAt }
+  }
+
+  private static func mergeProjectTombs(_ rows: [DeletedEntry], live: [String: Project]) -> [DeletedEntry] {
+    var tombs: [String: DeletedEntry] = [:]
+    for row in rows {
+      if let existing = tombs[row.id] {
+        if row.deletedAt >= existing.deletedAt { tombs[row.id] = row }
+      } else {
+        tombs[row.id] = row
+      }
+    }
+    for (id, tomb) in tombs {
+      if let project = live[id], (project.updatedAt ?? project.createdAt) > tomb.deletedAt {
+        tombs.removeValue(forKey: id)
+      }
+    }
+    return Array(tombs.values).sorted { $0.deletedAt > $1.deletedAt }
   }
 }

@@ -15,17 +15,31 @@ import {
   ui,
   undo,
 } from "./controller.js"
-import { bindChrome, focusComposer, render } from "./ui.js"
+import { bindChrome, focusComposer, formatUrgentLeft, render } from "./ui.js"
 import { addDaysIso, todayIso } from "../lib/dates.js"
+import { syncDiffCount } from "../lib/domain.js"
 import { t } from "../lib/i18n.js"
 
 function isField(target) {
   return target instanceof HTMLElement && target.matches("input, textarea, select, [contenteditable='true']")
 }
 
+window.tasksApi.onFullscreen((on) => {
+  document.documentElement.classList.toggle("is-fullscreen", Boolean(on))
+})
+
 bindChrome({
   onAdd: (title, due) => {
-    if (addTask(title, due || null)) render()
+    const extra = {}
+    if (ui.urgentMinutes) {
+      extra.urgentUntil = Date.now() + ui.urgentMinutes * 60 * 1000
+      extra.urgentAlert = ui.urgentAlert || "push"
+    }
+    if (addTask(title, due || null, extra)) {
+      ui.urgentMinutes = null
+      ui.urgentAlert = "push"
+      render()
+    }
   },
   onSearch: (query) => {
     ui.query = query
@@ -137,6 +151,10 @@ window.tasksApi.onMenu(({ action, payload }) => {
     setView({ type: "settings" })
     render()
   }
+  if (action === "sync") {
+    setView({ type: "sync" })
+    render()
+  }
   if (action === "toggle-done") {
     completeSelected()
     render()
@@ -166,17 +184,30 @@ Promise.all([window.tasksApi.load(), window.tasksApi.meta()]).then(([data, meta]
   loadInto(data)
   render()
   focusComposer()
-  window.tasksApi.onSync((next) => {
-    loadInto(next)
+  window.tasksApi.onSync((payload) => {
+    const next = payload?.store || payload
+    const stay = ui.view.type === "settings" || ui.view.type === "sync"
+    loadInto(next, { keepView: stay })
+    if (payload?.diff && syncDiffCount(payload.diff)) {
+      ui.syncDiff = payload.diff
+      if (ui.view.type !== "sync") {
+        ui.toast = { text: t("syncReviewToast"), at: Date.now(), openSync: true }
+      }
+    }
     render()
   })
   let day = todayIso()
   window.setInterval(() => {
     const next = todayIso()
-    if (next === day) return
-    day = next
-    render()
-  }, 20000)
+    if (next !== day) {
+      day = next
+      render()
+      return
+    }
+    const time = document.getElementById("urgent-banner-time")
+    const until = Number(document.getElementById("urgent-banner")?.dataset.until)
+    if (time && until) time.textContent = formatUrgentLeft(until)
+  }, 1000)
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) render()
   })

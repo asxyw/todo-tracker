@@ -1,6 +1,6 @@
 import { createServer, connect } from "node:net"
 import { spawn } from "node:child_process"
-import { mergeStores, migrate, uid } from "../lib/domain.js"
+import { diffStores, mergeStores, migrate, uid } from "../lib/domain.js"
 
 const PORT = 17841
 const SERVICE = "_zadachi._tcp"
@@ -110,8 +110,9 @@ async function exchange(socket, { load, save, onMerged, getDeviceId }) {
   const envelope = JSON.parse(raw.toString("utf8"))
   if (!envelope?.store || envelope.deviceId === deviceId) return
   const merged = mergeStores(local, migrate(envelope.store))
+  const diff = diffStores(local, migrate(envelope.store))
   await save(merged)
-  onMerged?.(merged)
+  onMerged?.(merged, diff)
 }
 
 export function startLanSync({ load, save, onMerged }) {
@@ -129,9 +130,11 @@ export function startLanSync({ load, save, onMerged }) {
       const local = await load()
       const id = getDeviceId(local)
       if (envelope.deviceId && envelope.deviceId === id) return
-      const merged = mergeStores(local, migrate(envelope.store))
+      const incoming = migrate(envelope.store)
+      const merged = mergeStores(local, incoming)
+      const diff = diffStores(local, incoming)
       await save(merged)
-      onMerged?.(merged)
+      onMerged?.(merged, diff)
       await writeFrame(socket, { deviceId: id, store: merged })
     } catch (error) {
       console.error("[задачи] lan", error)

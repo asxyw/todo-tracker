@@ -252,6 +252,9 @@ export function headerCopy(store, view) {
   if (view.type === "settings") {
     return { kicker: t("manage"), title: t("sections") }
   }
+  if (view.type === "sync") {
+    return { kicker: t("syncKicker"), title: t("syncTitle") }
+  }
   if (view.type === "archive") {
     return { kicker: t("canRestore"), title: t("archive") }
   }

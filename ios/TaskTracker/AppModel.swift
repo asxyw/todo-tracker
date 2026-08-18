@@ -14,6 +14,8 @@ final class AppModel {
   var upcomingDate = Dates.tomorrowIso()
   var weekAnchor = Dates.startOfWeek(Date())
   var editingTask: TaskItem?
+  var urgentMinutes: Double?
+  var urgentAlert = "push"
   var locale: String { store.settings.locale == "ru" ? "ru" : "en" }
 
   @ObservationIgnored private var sync: LanSync?
@@ -26,6 +28,7 @@ final class AppModel {
     syncStatus = L10n.t("local")
     StoreFile.save(store)
     startSync()
+    UrgentAlerts.sync(store)
   }
 
   var groups: [TaskGroup] {
@@ -46,6 +49,7 @@ final class AppModel {
     self.store = store
     StoreFile.save(store)
     sync?.push(store)
+    UrgentAlerts.sync(store)
   }
 
   func setLocale(_ code: String) {
@@ -107,9 +111,18 @@ final class AppModel {
     var nextDue = due
     if view == .today, parsed.due == nil, chipDue == nil { nextDue = nil }
     if view == .inbox, parsed.due == nil, chipDue == nil { nextDue = nil }
-    let next = Domain.createTask(store, title: parsed.title, due: nextDue, projectId: projectId)
+    let next = Domain.createTask(
+      store,
+      title: parsed.title,
+      due: nextDue,
+      projectId: projectId,
+      urgentUntil: urgentMinutes.map { Domain.now() + $0 * 60 * 1000 },
+      urgentAlert: urgentMinutes == nil ? nil : urgentAlert
+    )
     if next == store { return }
     draft = ""
+    urgentMinutes = nil
+    urgentAlert = "push"
     commit(next)
   }
 
@@ -173,6 +186,30 @@ final class AppModel {
 
   func pingNetwork() {
     sync?.push(store)
+    UrgentAlerts.sync(store)
+  }
+
+  func clearUrgent(_ id: String) {
+    commit(Domain.patchTask(store, id: id, patch: TaskPatch(clearUrgent: true)))
+  }
+
+  func hideIsland() {
+    UrgentAlerts.hideIsland()
+  }
+
+  func setDraftUrgent(minutes: Double) {
+    urgentMinutes = urgentMinutes == minutes ? nil : minutes
+    if urgentMinutes != nil, urgentAlert != "island" { urgentAlert = "push" }
+  }
+
+  func setDraftUrgent(hours: Int, minutes: Int) {
+    let total = hours * 60 + minutes
+    if total <= 0 {
+      urgentMinutes = nil
+      return
+    }
+    urgentMinutes = Double(total)
+    if urgentAlert != "island" { urgentAlert = "push" }
   }
 
   func resync() {
@@ -193,6 +230,7 @@ final class AppModel {
       self.store = merged
       L10n.set(merged.settings.locale)
       StoreFile.save(merged)
+      UrgentAlerts.sync(merged)
       return merged
     }
     lan.onStatus = { [weak self] text in

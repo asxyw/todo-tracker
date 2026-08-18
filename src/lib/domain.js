@@ -16,11 +16,16 @@ export function defaultZones() {
   ]
 }
 
+export function emptyDeleted() {
+  return { tasks: [], projects: [] }
+}
+
 export function emptyStore() {
   return {
-    schemaVersion: 6,
+    schemaVersion: 8,
     projects: [],
     tasks: [],
+    deleted: emptyDeleted(),
     settings: { lastView: { type: "today" }, zones: defaultZones(), deviceId: uid(), locale: "en" },
   }
 }
@@ -78,6 +83,21 @@ function keepRepeat(value) {
   return REPEAT[value] ? value : null
 }
 
+function keepUrgentAlert(value) {
+  return value === "island" || value === "push" ? value : null
+}
+
+function keepUrgentUntil(value) {
+  const stamp = Number(value)
+  return Number.isFinite(stamp) && stamp > 0 ? stamp : null
+}
+
+export function activeUrgent(store, now = Date.now()) {
+  return (store.tasks || [])
+    .filter((task) => !task.done && keepUrgentUntil(task.urgentUntil) > now)
+    .sort((a, b) => a.urgentUntil - b.urgentUntil)
+}
+
 export function migrate(raw) {
   if (!raw) return emptyStore()
   if (Array.isArray(raw)) {
@@ -117,15 +137,21 @@ export function migrate(raw) {
     later: Boolean(task.later),
     laterUntil: task.laterUntil || null,
     repeat: keepRepeat(task.repeat),
+    urgentUntil: keepUrgentUntil(task.urgentUntil),
+    urgentAlert: keepUrgentAlert(task.urgentAlert),
   }))
   const lastView = raw.settings?.lastView
   const viewType = lastView?.type === "daily" || lastView?.type === "calendar"
     ? (lastView.type === "daily" ? "inbox" : "upcoming")
     : lastView?.type
   return {
-    schemaVersion: 6,
+    schemaVersion: 8,
     projects,
     tasks,
+    deleted: {
+      tasks: asDeletedList(raw.deleted?.tasks),
+      projects: asDeletedList(raw.deleted?.projects),
+    },
     settings: {
       lastView: viewType ? { ...lastView, type: viewType } : { type: "today" },
       zones,
@@ -136,7 +162,38 @@ export function migrate(raw) {
   }
 }
 
-export function createTask(store, { title, due = null, projectId = null, asNext = false, note = "", repeat = null } = {}) {
+function asDeletedList(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((row) => row?.id).map((row) => ({
+    id: String(row.id),
+    title: String(row.title || row.name || ""),
+    deletedAt: Number(row.deletedAt) || Date.now(),
+  }))
+}
+
+export function listDeleted(store) {
+  return {
+    tasks: asDeletedList(store?.deleted?.tasks),
+    projects: asDeletedList(store?.deleted?.projects),
+  }
+}
+
+function rememberDeleted(list, row) {
+  const next = list.filter((item) => item.id !== row.id)
+  next.push({
+    id: row.id,
+    title: String(row.title || row.name || ""),
+    deletedAt: Date.now(),
+  })
+  next.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))
+  return next.slice(0, 400)
+}
+
+function dropDeleted(list, id) {
+  return list.filter((item) => item.id !== id)
+}
+
+export function createTask(store, { title, due = null, projectId = null, asNext = false, note = "", repeat = null, urgentUntil = null, urgentAlert = null } = {}) {
   const clean = String(title || "").trim()
   if (!clean) return store
   const next = clone(store)
@@ -164,6 +221,8 @@ export function createTask(store, { title, due = null, projectId = null, asNext 
     later: false,
     laterUntil: null,
     repeat: keepRepeat(repeat),
+    urgentUntil: keepUrgentUntil(urgentUntil),
+    urgentAlert: keepUrgentUntil(urgentUntil) ? keepUrgentAlert(urgentAlert) || "push" : null,
   })
   return next
 }
@@ -181,10 +240,18 @@ export function patchTask(store, id, patch) {
     if (updated.due && !("later" in patch) && !("laterUntil" in patch)) updated.later = false
     if ("note" in patch) updated.note = String(patch.note ?? "")
     if ("repeat" in patch) updated.repeat = keepRepeat(patch.repeat)
+    if ("urgentUntil" in patch) updated.urgentUntil = keepUrgentUntil(patch.urgentUntil)
+    if ("urgentAlert" in patch) updated.urgentAlert = keepUrgentAlert(patch.urgentAlert)
+    if (updated.urgentUntil && !updated.urgentAlert) updated.urgentAlert = "push"
+    if (!updated.urgentUntil) updated.urgentAlert = null
     if ("done" in patch) {
       updated.done = Boolean(patch.done)
       updated.completedAt = updated.done ? Date.now() : null
-      if (updated.done) updated.next = false
+      if (updated.done) {
+        updated.next = false
+        updated.urgentUntil = null
+        updated.urgentAlert = null
+      }
     }
     if (updated.projectId && !next.projects.some((row) => row.id === updated.projectId)) {
       updated.projectId = null
@@ -218,8 +285,12 @@ export function completeAndRepeat(store, id) {
 }
 
 export function deleteTask(store, id) {
+  const task = store.tasks.find((row) => row.id === id)
   const next = clone(store)
-  next.tasks = next.tasks.filter((task) => task.id !== id)
+  next.tasks = next.tasks.filter((row) => row.id !== id)
+  const deleted = listDeleted(next)
+  if (task) deleted.tasks = rememberDeleted(deleted.tasks, task)
+  next.deleted = deleted
   return next
 }
 
@@ -319,6 +390,19 @@ export function setNextTask(store, id) {
   return next
 }
 
+export function setUrgent(store, id, minutes, alert = "push") {
+  const task = store.tasks.find((row) => row.id === id)
+  if (!task || task.done) return store
+  const span = Number(minutes)
+  if (!Number.isFinite(span) || span <= 0) {
+    return patchTask(store, id, { urgentUntil: null, urgentAlert: null })
+  }
+  return patchTask(store, id, {
+    urgentUntil: Date.now() + span * 60 * 1000,
+    urgentAlert: keepUrgentAlert(alert) || "push",
+  })
+}
+
 export function setLaterTask(store, id) {
   const task = store.tasks.find((row) => row.id === id)
   if (!task) return store
@@ -327,13 +411,17 @@ export function setLaterTask(store, id) {
 }
 
 export function deleteProject(store, id) {
+  const project = store.projects.find((row) => row.id === id)
   const next = clone(store)
   next.tasks = next.tasks.map((task) => (
     task.projectId === id
       ? { ...task, projectId: null, next: false, updatedAt: Date.now() }
       : task
   ))
-  next.projects = next.projects.filter((project) => project.id !== id)
+  next.projects = next.projects.filter((row) => row.id !== id)
+  const deleted = listDeleted(next)
+  if (project) deleted.projects = rememberDeleted(deleted.projects, project)
+  next.deleted = deleted
   return next
 }
 
@@ -357,6 +445,12 @@ export function mergeStores(local, remote) {
     const prevStamp = prev ? (prev.updatedAt || prev.createdAt || 0) : -1
     if (!prev || stamp >= prevStamp) projects.set(project.id, project)
   }
+  const deleted = {
+    tasks: mergeTombstones(listDeleted(local).tasks, listDeleted(remote).tasks, tasks),
+    projects: mergeTombstones(listDeleted(local).projects, listDeleted(remote).projects, projects),
+  }
+  for (const tomb of deleted.tasks) tasks.delete(tomb.id)
+  for (const tomb of deleted.projects) projects.delete(tomb.id)
   const zones = new Map()
   for (const zone of [...listZones(local), ...listZones(remote)]) {
     if (!zones.has(zone.id)) zones.set(zone.id, zone)
@@ -367,9 +461,10 @@ export function mergeStores(local, remote) {
   const remoteSet = Number(remote.settings?.updatedAt) || remoteStamp
   const newer = remoteSet > localSet ? remote.settings : local.settings
   return {
-    schemaVersion: 6,
+    schemaVersion: 8,
     projects: [...projects.values()].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
     tasks: [...tasks.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+    deleted,
     settings: {
       lastView: newer?.lastView || { type: "today" },
       zones: zones.size ? [...zones.values()] : defaultZones(),
@@ -378,4 +473,97 @@ export function mergeStores(local, remote) {
       updatedAt: Math.max(localSet, remoteSet),
     },
   }
+}
+
+function mergeTombstones(localList, remoteList, live) {
+  const tombs = new Map()
+  for (const row of [...localList, ...remoteList]) {
+    const prev = tombs.get(row.id)
+    if (!prev || (row.deletedAt || 0) >= (prev.deletedAt || 0)) tombs.set(row.id, row)
+  }
+  for (const [id, tomb] of tombs) {
+    const row = live.get(id)
+    const stamp = row ? (row.updatedAt || row.createdAt || 0) : 0
+    if (row && stamp > (tomb.deletedAt || 0)) tombs.delete(id)
+  }
+  return [...tombs.values()].sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0)).slice(0, 400)
+}
+
+function brief(row, extra = {}) {
+  return {
+    id: row.id,
+    title: String(row.title || row.name || ""),
+    snapshot: row,
+    ...extra,
+  }
+}
+
+export function emptySyncDiff() {
+  return {
+    addedHere: [],
+    addedThere: [],
+    deletedHere: [],
+    deletedThere: [],
+    addedProjectsHere: [],
+    addedProjectsThere: [],
+    deletedProjectsHere: [],
+    deletedProjectsThere: [],
+  }
+}
+
+export function syncDiffCount(diff) {
+  if (!diff) return 0
+  return Object.values(diff).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0)
+}
+
+export function diffStores(local, remote) {
+  const diff = emptySyncDiff()
+  if (!remote) return diff
+  const localTasks = new Map((local.tasks || []).map((row) => [row.id, row]))
+  const remoteTasks = new Map((remote.tasks || []).map((row) => [row.id, row]))
+  const localTombs = new Map(listDeleted(local).tasks.map((row) => [row.id, row]))
+  const remoteTombs = new Map(listDeleted(remote).tasks.map((row) => [row.id, row]))
+  for (const [id, task] of localTasks) {
+    if (!remoteTasks.has(id) && !remoteTombs.has(id)) diff.addedHere.push(brief(task))
+    if (remoteTombs.has(id)) diff.deletedThere.push(brief(task, { from: "phone" }))
+  }
+  for (const [id, task] of remoteTasks) {
+    if (!localTasks.has(id) && !localTombs.has(id)) diff.addedThere.push(brief(task))
+    if (localTombs.has(id)) diff.deletedHere.push(brief(task, { from: "mac" }))
+  }
+  const localProjects = new Map((local.projects || []).map((row) => [row.id, row]))
+  const remoteProjects = new Map((remote.projects || []).map((row) => [row.id, row]))
+  const localGone = new Map(listDeleted(local).projects.map((row) => [row.id, row]))
+  const remoteGone = new Map(listDeleted(remote).projects.map((row) => [row.id, row]))
+  for (const [id, project] of localProjects) {
+    if (!remoteProjects.has(id) && !remoteGone.has(id)) diff.addedProjectsHere.push(brief(project))
+    if (remoteGone.has(id)) diff.deletedProjectsThere.push(brief(project, { from: "phone" }))
+  }
+  for (const [id, project] of remoteProjects) {
+    if (!localProjects.has(id) && !localGone.has(id)) diff.addedProjectsThere.push(brief(project))
+    if (localGone.has(id)) diff.deletedProjectsHere.push(brief(project, { from: "mac" }))
+  }
+  return diff
+}
+
+export function keepLocalItem(store, snapshot, kind = "task") {
+  if (!snapshot?.id) return store
+  const next = clone(store)
+  const deleted = listDeleted(next)
+  const stamp = Date.now() + 1
+  if (kind === "project") {
+    deleted.projects = dropDeleted(deleted.projects, snapshot.id)
+    next.deleted = deleted
+    const project = { ...snapshot, updatedAt: stamp }
+    next.projects = [
+      ...next.projects.filter((row) => row.id !== snapshot.id),
+      project,
+    ]
+    return next
+  }
+  deleted.tasks = dropDeleted(deleted.tasks, snapshot.id)
+  next.deleted = deleted
+  const task = { ...snapshot, updatedAt: stamp }
+  next.tasks = [task, ...next.tasks.filter((row) => row.id !== snapshot.id)]
+  return next
 }

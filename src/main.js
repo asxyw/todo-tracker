@@ -7,6 +7,7 @@ import { createRequire } from "node:module"
 import { copyFile } from "node:fs/promises"
 import { dataDir, loadStore, saveStore, storePath } from "./main/repository.js"
 import { startLanSync } from "./main/lan-sync.js"
+import { scheduleUrgentAlerts } from "./main/urgent-alerts.js"
 import { smartCounts } from "./lib/selectors.js"
 import { locale, setLocale, t } from "./lib/i18n.js"
 
@@ -28,6 +29,7 @@ function sendMenu(action, payload) {
 function updateBadge(store) {
   const count = store ? smartCounts(store).today : 0
   app.dock?.setBadge(count ? String(count) : "")
+  if (store) scheduleUrgentAlerts(store)
 }
 
 function buildMenu() {
@@ -54,6 +56,7 @@ function buildMenu() {
         { label: t("newFocusProject"), accelerator: "CmdOrCtrl+Shift+D", click: () => sendMenu("new-focus-project") },
         { type: "separator" },
         { label: t("settingsShort"), click: () => sendMenu("settings") },
+        { label: t("syncReview"), click: () => sendMenu("sync") },
         { type: "separator" },
         {
           label: t("showInFinder"),
@@ -85,6 +88,8 @@ function buildMenu() {
         { label: t("inbox"), accelerator: "CmdOrCtrl+3", click: () => sendMenu("view", "inbox") },
         { label: t("all"), accelerator: "CmdOrCtrl+4", click: () => sendMenu("view", "all") },
         { label: t("archive"), accelerator: "CmdOrCtrl+5", click: () => sendMenu("view", "archive") },
+        { type: "separator" },
+        { label: t("syncReview"), click: () => sendMenu("sync") },
         { type: "separator" },
         { label: t("search"), accelerator: "CmdOrCtrl+F", click: () => sendMenu("search") },
       ],
@@ -168,7 +173,13 @@ function createWindow() {
   win.webContents.on("did-fail-load", (_event, code, desc) => {
     console.error("[задачи] load fail", code, desc)
   })
+  const sendFullscreen = () => {
+    win?.webContents.send("chrome:fullscreen", Boolean(win?.isFullScreen()))
+  }
+  win.on("enter-full-screen", sendFullscreen)
+  win.on("leave-full-screen", sendFullscreen)
   win.webContents.on("did-finish-load", async () => {
+    sendFullscreen()
     const glass = await applyNativeGlass(win)
     if (!glass) win.setVibrancy("under-window")
   })
@@ -208,10 +219,10 @@ app.whenReady().then(async () => {
   lan = startLanSync({
     load: loadStore,
     save: saveStore,
-    onMerged: (merged) => {
+    onMerged: (merged, diff) => {
       applyStoreLocale(merged)
       updateBadge(merged)
-      win?.webContents.send("store:sync", merged)
+      win?.webContents.send("store:sync", { store: merged, diff })
     },
   })
 })

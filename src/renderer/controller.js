@@ -7,6 +7,7 @@ import {
   deleteTask,
   deleteZone,
   isFocusProject,
+  keepLocalItem,
   listZones,
   moveZone,
   patchProject,
@@ -15,6 +16,7 @@ import {
   setLastView,
   setLaterTask,
   setNextTask,
+  setUrgent,
 } from "../lib/domain.js"
 import { iso, startOfWeek, addDaysIso, todayIso } from "../lib/dates.js"
 import { parseTitleDate } from "../lib/parseTitle.js"
@@ -32,7 +34,10 @@ export const ui = {
   pendingNext: null,
   toast: null,
   folds: { done: true, later: true },
-  store: { schemaVersion: 6, projects: [], tasks: [], settings: {} },
+  syncDiff: null,
+  urgentMinutes: null,
+  urgentAlert: "push",
+  store: { schemaVersion: 8, projects: [], tasks: [], deleted: { tasks: [], projects: [] }, settings: {} },
 }
 
 function snapshot() {
@@ -40,12 +45,14 @@ function snapshot() {
     tasks: ui.store.tasks,
     projects: ui.store.projects,
     settings: ui.store.settings,
+    deleted: ui.store.deleted,
   }))
   if (history.length > 40) history.shift()
 }
 
 async function persist() {
-  ui.store = setLastView(ui.store, ui.view)
+  const persistable = ["today", "inbox", "upcoming", "all", "archive", "project"]
+  if (persistable.includes(ui.view.type)) ui.store = setLastView(ui.store, ui.view)
   ui.store = {
     ...ui.store,
     settings: {
@@ -70,7 +77,7 @@ export function flashToast(text) {
 export function undo() {
   const prev = history.pop()
   if (!prev) return false
-  ui.store = { ...ui.store, tasks: prev.tasks, projects: prev.projects, settings: prev.settings }
+  ui.store = { ...ui.store, tasks: prev.tasks, projects: prev.projects, settings: prev.settings, deleted: prev.deleted }
   ui.pendingNext = null
   syncLocale(ui.store.settings?.locale)
   flashToast(t("undone"))
@@ -114,6 +121,8 @@ export function addTask(title, due, extra = {}) {
     asNext: Boolean(extra.asNext),
     note: extra.note || "",
     repeat: extra.repeat || null,
+    urgentUntil: extra.urgentUntil || null,
+    urgentAlert: extra.urgentAlert || null,
   })
   if (next === ui.store) return false
   commit(next)
@@ -151,6 +160,14 @@ export function completeTask(id) {
   commit(completeAndRepeat(ui.store, id))
   afterToggle(task)
   flashToast(task.done ? t("restored") : (task.repeat ? t("completedRepeat") : t("completed")))
+}
+
+export function setUrgentTask(id, minutes, alert) {
+  commit(setUrgent(ui.store, id, minutes, alert))
+}
+
+export function clearUrgentTask(id) {
+  updateTask(id, { urgentUntil: null, urgentAlert: null })
 }
 
 export function cycleRepeat(id) {
@@ -312,10 +329,25 @@ export function applyLocale(code) {
   return next
 }
 
-export function loadInto(store) {
+export function keepSyncItem(row, kind = "task") {
+  if (!row?.snapshot) return false
+  commit(keepLocalItem(ui.store, row.snapshot, kind))
+  flashToast(t("syncKept"))
+  if (ui.syncDiff) {
+    const key = kind === "project" ? "deletedProjectsThere" : "deletedThere"
+    ui.syncDiff = {
+      ...ui.syncDiff,
+      [key]: (ui.syncDiff[key] || []).filter((item) => item.id !== row.id),
+    }
+  }
+  return true
+}
+
+export function loadInto(store, { keepView = false } = {}) {
   ui.store = store
   ui.pendingNext = null
   syncLocale(store.settings?.locale)
+  if (keepView) return
   const last = store.settings?.lastView
   const validProject = last?.type === "project" && store.projects.some((row) => row.id === last.id)
   const views = ["today", "inbox", "upcoming", "all", "archive"]

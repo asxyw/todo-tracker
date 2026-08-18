@@ -13,10 +13,11 @@ enum Domain {
 
   static func emptyStore() -> Store {
     Store(
-      schemaVersion: 6,
+      schemaVersion: 8,
       projects: [],
       tasks: [],
-      settings: Settings(lastView: LastView(type: "today"), zones: defaultZones(), deviceId: uid())
+      settings: Settings(lastView: LastView(type: "today"), zones: defaultZones(), deviceId: uid()),
+      deleted: .empty
     )
   }
 
@@ -44,7 +45,10 @@ enum Domain {
     var store = raw
     if store.settings.zones.isEmpty { store.settings.zones = defaultZones() }
     if store.settings.deviceId == nil { store.settings.deviceId = uid() }
-    store.schemaVersion = 6
+    store.schemaVersion = 8
+    if store.deleted.tasks.isEmpty, store.deleted.projects.isEmpty {
+      store.deleted = .empty
+    }
     store.tasks = store.tasks.enumerated().map { index, task in
       var next = task
       if next.title.isEmpty { next.title = L10n.t("untitled") }
@@ -62,7 +66,9 @@ enum Domain {
     projectId: String?,
     asNext: Bool = false,
     note: String = "",
-    repeatRule: String? = nil
+    repeatRule: String? = nil,
+    urgentUntil: Double? = nil,
+    urgentAlert: String? = nil
   ) -> Store {
     let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
     if clean.isEmpty { return store }
@@ -94,7 +100,9 @@ enum Domain {
         next: pin,
         later: false,
         laterUntil: nil,
-        repeatRule: repeatDays[repeatRule ?? ""] != nil ? repeatRule : nil
+        repeatRule: repeatDays[repeatRule ?? ""] != nil ? repeatRule : nil,
+        urgentUntil: urgentUntil,
+        urgentAlert: urgentUntil != nil ? ((urgentAlert == "island" || urgentAlert == "push") ? urgentAlert : "push") : nil
       ),
       at: 0
     )
@@ -122,10 +130,22 @@ enum Domain {
       }
       if let nextFlag = patch.next { updated.next = nextFlag }
       if let repeatRule = patch.repeatRule { updated.repeatRule = repeatDays[repeatRule ?? ""] != nil ? repeatRule : nil }
+      if patch.clearUrgent {
+        updated.urgentUntil = nil
+        updated.urgentAlert = nil
+      }
+      if let urgentUntil = patch.urgentUntil { updated.urgentUntil = urgentUntil }
+      if let urgentAlert = patch.urgentAlert { updated.urgentAlert = urgentAlert == "island" ? "island" : "push" }
+      if updated.urgentUntil != nil, updated.urgentAlert == nil { updated.urgentAlert = "push" }
+      if updated.urgentUntil == nil { updated.urgentAlert = nil }
       if let done = patch.done {
         updated.done = done
         updated.completedAt = done ? now() : nil
-        if done { updated.next = false }
+        if done {
+          updated.next = false
+          updated.urgentUntil = nil
+          updated.urgentAlert = nil
+        }
       }
       if updated.laterUntil != nil { updated.later = true }
       if updated.due != nil, patch.later == nil, patch.laterUntil == nil { updated.later = false }
@@ -154,6 +174,11 @@ enum Domain {
 
   static func deleteTask(_ store: Store, id: String) -> Store {
     var next = store
+    if let task = next.tasks.first(where: { $0.id == id }) {
+      next.deleted.tasks.removeAll { $0.id == id }
+      next.deleted.tasks.insert(DeletedEntry(id: task.id, title: task.title, deletedAt: now()), at: 0)
+      if next.deleted.tasks.count > 400 { next.deleted.tasks = Array(next.deleted.tasks.prefix(400)) }
+    }
     next.tasks.removeAll { $0.id == id }
     return next
   }
@@ -222,6 +247,24 @@ enum Domain {
     return next
   }
 
+  static func setUrgent(_ store: Store, id: String, minutes: Double, alert: String) -> Store {
+    guard let task = store.tasks.first(where: { $0.id == id }), !task.done else { return store }
+    if minutes <= 0 {
+      return patchTask(store, id: id, patch: TaskPatch(clearUrgent: true))
+    }
+    return patchTask(store, id: id, patch: TaskPatch(
+      urgentUntil: now() + minutes * 60 * 1000,
+      urgentAlert: alert == "island" ? "island" : "push"
+    ))
+  }
+
+  static func activeUrgent(_ store: Store) -> [TaskItem] {
+    let stamp = now()
+    return store.tasks
+      .filter { !$0.done && ($0.urgentUntil ?? 0) > stamp }
+      .sorted { ($0.urgentUntil ?? 0) < ($1.urgentUntil ?? 0) }
+  }
+
   static func ensureDeviceId(_ store: Store) -> Store {
     if store.settings.deviceId != nil { return store }
     var next = store
@@ -242,4 +285,7 @@ struct TaskPatch {
   var next: Bool? = nil
   var repeatRule: String?? = nil
   var done: Bool? = nil
+  var urgentUntil: Double? = nil
+  var urgentAlert: String? = nil
+  var clearUrgent: Bool = false
 }

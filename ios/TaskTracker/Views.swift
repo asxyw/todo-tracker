@@ -7,7 +7,11 @@ struct RootView: View {
 
   var body: some View {
     @Bindable var model = model
-    TabView(selection: tabBinding) {
+    VStack(spacing: 0) {
+      if let task = Domain.activeUrgent(model.store).first {
+        UrgentBanner(task: task)
+      }
+      TabView(selection: tabBinding) {
       NavigationStack {
         TaskBoardView()
       }
@@ -53,6 +57,7 @@ struct RootView: View {
     .sheet(item: $model.editingTask) { task in
       TaskEditSheet(task: task)
     }
+    }
   }
 
   private var tabBinding: Binding<AppView> {
@@ -69,6 +74,44 @@ struct RootView: View {
         else { model.syncChipsToView() }
       }
     )
+  }
+}
+
+struct UrgentBanner: View {
+  @Environment(AppModel.self) private var model
+  let task: TaskItem
+
+  var body: some View {
+    TimelineView(.periodic(from: .now, by: 1)) { timeline in
+      HStack(spacing: 10) {
+        Text(task.title)
+          .font(.subheadline.weight(.semibold))
+          .lineLimit(1)
+        Spacer(minLength: 8)
+        Text(left(at: timeline.date))
+          .font(.subheadline.monospacedDigit().weight(.semibold))
+        if task.urgentAlert == "island" {
+          Button(L10n.t("urgentHideIsland")) { model.hideIsland() }
+            .font(.caption)
+        }
+        Button(L10n.t("urgentStop")) { model.clearUrgent(task.id) }
+          .font(.caption)
+      }
+      .padding(.horizontal, 14)
+      .padding(.vertical, 8)
+      .background(Color.orange.opacity(0.22))
+    }
+  }
+
+  private func left(at date: Date) -> String {
+    let ms = (task.urgentUntil ?? 0) - date.timeIntervalSince1970 * 1000
+    if ms <= 0 { return L10n.t("urgentNow") }
+    let minutes = max(1, Int(ceil(ms / 60_000)))
+    if minutes < 60 { return L10n.t("urgentMin", n: minutes) }
+    let hours = minutes / 60
+    let rest = minutes % 60
+    if rest == 0 { return L10n.t("urgentHour", ["h": String(hours)]) }
+    return L10n.t("urgentHourMin", ["h": String(hours), "m": String(rest)])
   }
 }
 
@@ -250,6 +293,7 @@ struct TaskBoardView: View {
 struct ComposerView: View {
   @Environment(AppModel.self) private var model
   @State private var pickDate = false
+  @State private var pickUrgent = false
   @FocusState private var composerFocused: Bool
 
   var body: some View {
@@ -290,6 +334,27 @@ struct ComposerView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
       }
+      HStack(spacing: 8) {
+        urgentChip(L10n.t("urgent30"), minutes: 30)
+        urgentChip(L10n.t("urgent1h"), minutes: 60)
+        urgentChip(L10n.t("urgent2h"), minutes: 120)
+        Button(customUrgentTitle) {
+          composerFocused = false
+          dismissKeyboard()
+          pickUrgent = true
+        }
+        .font(.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(urgentIsCustom ? Color.orange.opacity(0.28) : Color.white.opacity(0.06), in: Capsule())
+        .foregroundStyle(urgentIsCustom ? Color.orange : Color.secondary)
+      }
+      if model.urgentMinutes != nil {
+        HStack(spacing: 8) {
+          urgentAlertChip(L10n.t("urgentPush"), alert: "push")
+          urgentAlertChip(L10n.t("urgentIsland"), alert: "island")
+        }
+      }
     }
     .padding(12)
     .background(Color.white.opacity(0.04))
@@ -321,6 +386,10 @@ struct ComposerView: View {
           }
       }
       .presentationDetents([.medium, .large])
+    }
+    .sheet(isPresented: $pickUrgent) {
+      UrgentDurationSheet()
+        .presentationDetents([.medium])
     }
   }
 
@@ -376,6 +445,45 @@ struct ComposerView: View {
       .padding(.vertical, 6)
       .background(on ? Color.blue.opacity(0.22) : Color.white.opacity(0.06), in: Capsule())
       .foregroundStyle(on ? Color.cyan : Color.secondary)
+  }
+
+  private var urgentIsCustom: Bool {
+    guard let minutes = model.urgentMinutes else { return false }
+    return minutes != 30 && minutes != 60 && minutes != 120
+  }
+
+  private var customUrgentTitle: String {
+    guard urgentIsCustom, let minutes = model.urgentMinutes else { return L10n.t("urgentCustom") }
+    let n = Int(minutes)
+    if n < 60 { return L10n.t("urgentMin", n: n) }
+    let hours = n / 60
+    let rest = n % 60
+    if rest == 0 { return L10n.t("urgentHour", ["h": String(hours)]) }
+    return L10n.t("urgentHourMin", ["h": String(hours), "m": String(rest)])
+  }
+
+  private func urgentChip(_ title: String, minutes: Double) -> some View {
+    let on = model.urgentMinutes == minutes
+    return Button(title) {
+      model.setDraftUrgent(minutes: minutes)
+    }
+      .font(.caption)
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(on ? Color.orange.opacity(0.28) : Color.white.opacity(0.06), in: Capsule())
+      .foregroundStyle(on ? Color.orange : Color.secondary)
+  }
+
+  private func urgentAlertChip(_ title: String, alert: String) -> some View {
+    let on = model.urgentAlert == alert
+    return Button(title) {
+      model.urgentAlert = alert
+    }
+      .font(.caption)
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(on ? Color.orange.opacity(0.28) : Color.white.opacity(0.06), in: Capsule())
+      .foregroundStyle(on ? Color.orange : Color.secondary)
   }
 }
 
@@ -633,6 +741,61 @@ extension Color {
       blue: Double(int & 0xFF) / 255,
       opacity: Double((int >> 24) & 0xFF) / 255
     )
+  }
+}
+
+struct UrgentDurationSheet: View {
+  @Environment(AppModel.self) private var model
+  @Environment(\.dismiss) private var dismiss
+  @State private var hours = 0
+  @State private var minutes = 15
+
+  var body: some View {
+    NavigationStack {
+      HStack(spacing: 8) {
+        Picker(L10n.t("urgentHourUnit"), selection: $hours) {
+          ForEach(0..<24, id: \.self) { value in
+            Text("\(value)").tag(value)
+          }
+        }
+        .pickerStyle(.wheel)
+        Text(L10n.t("urgentHourUnit"))
+          .font(.headline)
+          .foregroundStyle(.secondary)
+        Picker(L10n.t("urgentMinUnit"), selection: $minutes) {
+          ForEach(0..<60, id: \.self) { value in
+            Text("\(value)").tag(value)
+          }
+        }
+        .pickerStyle(.wheel)
+        Text(L10n.t("urgentMinUnit"))
+          .font(.headline)
+          .foregroundStyle(.secondary)
+      }
+      .padding(.horizontal, 12)
+      .navigationTitle(L10n.t("urgent"))
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button(L10n.t("urgentStop")) {
+            model.urgentMinutes = nil
+            dismiss()
+          }
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(L10n.t("doneKey")) {
+            model.setDraftUrgent(hours: hours, minutes: minutes)
+            dismiss()
+          }
+          .disabled(hours == 0 && minutes == 0)
+        }
+      }
+    }
+    .onAppear {
+      let total = Int(model.urgentMinutes ?? 15)
+      hours = min(23, total / 60)
+      minutes = total % 60
+    }
   }
 }
 

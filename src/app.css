@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --chrome-top: 52px;
   --text: rgba(255, 255, 255, 0.94);
   --mute: rgba(255, 255, 255, 0.46);
   --faint: rgba(255, 255, 255, 0.28);
@@ -62,13 +63,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   -webkit-app-region: drag;
 }
 
-.titlebar-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+html.is-fullscreen {
+  --chrome-top: 84px;
+}
+
+.titlebar-space {
   flex-shrink: 0;
-  height: 52px;
-  padding-left: 72px;
+  height: var(--chrome-top);
 }
 
 html.native-glass .sidebar,
@@ -99,7 +100,7 @@ html.native-glass .composer {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 52px 28px 16px;
+  padding: var(--chrome-top) 28px 16px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 36%),
     var(--glass-2);
@@ -115,6 +116,8 @@ html.native-glass .composer {
 .composer,
 .date-chips,
 .composer-hint,
+.urgent-chips,
+.urgent-banner,
 #open-settings {
   flex-shrink: 0;
 }
@@ -126,7 +129,7 @@ html.native-glass .composer {
   border-radius: 0;
 }
 
-nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .lang-switch, .sidebar-chrome, .date-chips, .next-prompt, .toast, h1, button, input, select, textarea {
+nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .sync-open, .lang-switch, .sidebar-chrome, .date-chips, .urgent-chips, .urgent-banner, .next-prompt, .toast, h1, button, input, select, textarea {
   -webkit-app-region: no-drag;
 }
 
@@ -321,12 +324,51 @@ div.nav-item { cursor: pointer; }
 
 .app-version:hover { color: var(--mute); }
 
+.sync-open {
+  margin: 0;
+  border: 0;
+  padding: 0 2px;
+  background: none;
+  font-size: 11px;
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.sync-open.has-changes,
+.sync-open:hover { color: var(--mute); }
+
+.sync-open.active { color: #fff; }
+
+.sync-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sync-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-quiet {
+  margin: 0;
+  color: var(--mute);
+  line-height: 1.45;
+}
+
+.toast.is-action { cursor: pointer; }
+
 .sidebar-chrome {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
-  margin: 0;
+  margin: 0 0 4px;
   opacity: 0.7;
   flex-shrink: 0;
 }
@@ -634,6 +676,50 @@ h1[contenteditable="true"] {
 }
 
 .date-chips button:hover { color: #fff; }
+
+.urgent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 4px 8px;
+}
+
+.urgent-chips button {
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--fill);
+  color: var(--mute);
+  cursor: pointer;
+}
+
+.urgent-chips button.active {
+  background: var(--fill-strong);
+  color: #fff;
+}
+
+.urgent-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.16);
+}
+
+.urgent-banner-copy {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.urgent-banner-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
 
 .next-prompt {
   margin: 0 0 14px;

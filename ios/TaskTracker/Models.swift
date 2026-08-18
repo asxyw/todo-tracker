@@ -71,13 +71,16 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
   var later: Bool
   var laterUntil: String?
   var repeatRule: String?
+  var urgentUntil: Double?
+  var urgentAlert: String?
 
   enum CodingKeys: String, CodingKey {
     case id, title, note, done, due, projectId, createdAt, updatedAt, completedAt, order, next, later, laterUntil
     case repeatRule = "repeat"
+    case urgentUntil, urgentAlert
   }
 
-  init(id: String, title: String, note: String, done: Bool, due: String?, projectId: String?, createdAt: Double, updatedAt: Double, completedAt: Double?, order: Double, next: Bool, later: Bool, laterUntil: String?, repeatRule: String?) {
+  init(id: String, title: String, note: String, done: Bool, due: String?, projectId: String?, createdAt: Double, updatedAt: Double, completedAt: Double?, order: Double, next: Bool, later: Bool, laterUntil: String?, repeatRule: String?, urgentUntil: Double? = nil, urgentAlert: String? = nil) {
     self.id = id
     self.title = title
     self.note = note
@@ -92,6 +95,8 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     self.later = later
     self.laterUntil = laterUntil
     self.repeatRule = repeatRule
+    self.urgentUntil = urgentUntil
+    self.urgentAlert = urgentAlert
   }
 
   init(from decoder: Decoder) throws {
@@ -110,6 +115,8 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     later = (try c.decodeIfPresent(Bool.self, forKey: .later)) ?? false
     laterUntil = try c.decodeIfPresent(String.self, forKey: .laterUntil)
     repeatRule = try c.decodeIfPresent(String.self, forKey: .repeatRule)
+    urgentUntil = try c.decodeIfPresent(Double.self, forKey: .urgentUntil)
+    urgentAlert = try c.decodeIfPresent(String.self, forKey: .urgentAlert)
   }
 
   func encode(to encoder: Encoder) throws {
@@ -128,6 +135,8 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     try c.encode(later, forKey: .later)
     try c.encodeIfPresent(laterUntil, forKey: .laterUntil)
     try c.encodeIfPresent(repeatRule, forKey: .repeatRule)
+    try c.encodeIfPresent(urgentUntil, forKey: .urgentUntil)
+    try c.encodeIfPresent(urgentAlert, forKey: .urgentAlert)
   }
 }
 
@@ -175,11 +184,59 @@ struct Settings: Codable, Equatable {
   }
 }
 
+struct DeletedEntry: Codable, Equatable, Hashable {
+  var id: String
+  var title: String?
+  var deletedAt: Double
+}
+
+struct Deleted: Codable, Equatable {
+  var tasks: [DeletedEntry]
+  var projects: [DeletedEntry]
+
+  static let empty = Deleted(tasks: [], projects: [])
+
+  enum CodingKeys: String, CodingKey { case tasks, projects }
+
+  init(tasks: [DeletedEntry] = [], projects: [DeletedEntry] = []) {
+    self.tasks = tasks
+    self.projects = projects
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    tasks = (try c.decodeIfPresent([DeletedEntry].self, forKey: .tasks)) ?? []
+    projects = (try c.decodeIfPresent([DeletedEntry].self, forKey: .projects)) ?? []
+  }
+}
+
 struct Store: Codable, Equatable {
   var schemaVersion: Int
   var projects: [Project]
   var tasks: [TaskItem]
   var settings: Settings
+  var deleted: Deleted
+
+  enum CodingKeys: String, CodingKey {
+    case schemaVersion, projects, tasks, settings, deleted
+  }
+
+  init(schemaVersion: Int, projects: [Project], tasks: [TaskItem], settings: Settings, deleted: Deleted = .empty) {
+    self.schemaVersion = schemaVersion
+    self.projects = projects
+    self.tasks = tasks
+    self.settings = settings
+    self.deleted = deleted
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion = (try c.decodeIfPresent(Int.self, forKey: .schemaVersion)) ?? 7
+    projects = (try c.decodeIfPresent([Project].self, forKey: .projects)) ?? []
+    tasks = (try c.decodeIfPresent([TaskItem].self, forKey: .tasks)) ?? []
+    settings = try c.decode(Settings.self, forKey: .settings)
+    deleted = (try c.decodeIfPresent(Deleted.self, forKey: .deleted)) ?? .empty
+  }
 }
 
 enum AppView: Equatable, Hashable {
