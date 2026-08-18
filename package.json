@@ -1,0 +1,19 @@
+{
+  "name": "todo-tracker",
+  "productName": "Task Tracker",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . \"Task Tracker\" --platform=darwin --arch=arm64 --out=dist --overwrite --app-bundle-id=com.asxyw.zadachi --icon=build/icon.icns --extend-info=build/darwin-info.plist --asar.unpack=\"**/{*.node,electron-liquid-glass/**}\" --ignore='^/(\\.cache|dist|canvases|data|ios|Задачи\\.app|Task Tracker\\.app)' && rm -rf \"Task Tracker.app\" && ditto \"dist/Task Tracker-darwin-arm64/Task Tracker.app\" \"Task Tracker.app\""
+  },
+  "devDependencies": {
+    "@electron/packager": "^19.0.0",
+    "electron": "^37.2.6"
+  },
+  "dependencies": {
+    "electron-liquid-glass": "^1.1.1"
+  }
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"/>
+  <title>Task Tracker</title>
+  <style>
+    html, body { background: #141416; }
+    .sidebar { background: rgba(16, 16, 18, 0.92); }
+    .main { background: rgba(12, 12, 14, 0.88); }
+    .new-list { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); }
+  </style>
+  <link rel="stylesheet" href="./app.css"/>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="traffic"></div>
+      <nav class="smart" id="smart-nav"></nav>
+      <div class="zones" id="zones-root"></div>
+      <button type="button" class="new-list" id="open-settings">Разделы и правила</button>
+      <button type="button" class="app-version" id="app-version" hidden></button>
+    </aside>
+    <main class="main">
+      <header class="top">
+        <div>
+          <p class="kicker" id="kicker"></p>
+          <h1 id="heading"></h1>
+        </div>
+        <div class="top-meta">
+          <input id="search" type="search" placeholder="Поиск" autocomplete="off"/>
+          <p class="meta" id="meta"></p>
+        </div>
+      </header>
+      <div class="project-head" id="project-head" hidden></div>
+      <div class="week" id="week" hidden></div>
+      <div class="next-prompt" id="next-prompt" hidden></div>
+      <form class="composer" id="composer">
+        <span class="plus" aria-hidden="true">+</span>
+        <input id="task-input" type="text" placeholder="Что сделать сегодня?  завтра, пт, +3д" autocomplete="off" maxlength="4000"/>
+        <input id="task-date" type="date" aria-label="Дата"/>
+        <button type="submit" class="add-btn">Добавить</button>
+      </form>
+      <div class="date-chips">
+        <button type="button" id="chip-today">Сегодня</button>
+        <button type="button" id="chip-tomorrow">Завтра</button>
+        <button type="button" id="chip-none">Без даты</button>
+      </div>
+      <p class="composer-hint" id="composer-hint">Добавить в: Сегодня</p>
+      <div class="board" id="board"></div>
+    </main>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script src="./renderer/boot.js"></script>
+  <script type="module" src="./renderer/app.js"></script>
+</body>
+</html>

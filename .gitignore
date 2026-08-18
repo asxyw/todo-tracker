@@ -1,0 +1,8 @@
+node_modules/
+.cache/
+ios/build/
+ios/**/xcuserdata/
+.DS_Store
+dist/
+*.app
+data/
