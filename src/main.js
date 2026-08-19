@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { createRequire } from "node:module"
 import { copyFile } from "node:fs/promises"
@@ -17,6 +17,20 @@ const require = createRequire(import.meta.url)
 nativeTheme.themeSource = "dark"
 app.setName("Task Tracker")
 app.setPath("userData", join(homedir(), "Library/Application Support/Task Tracker"))
+
+// Native date pickers take their format from the Chromium locale, which has to
+// be fixed before the app is ready — hence reading the stored language here.
+// A language change therefore only reaches those fields after a restart.
+function storedLanguage() {
+  try {
+    const raw = readFileSync(join(app.getPath("userData"), "tasks.json"), "utf8")
+    return JSON.parse(raw)?.settings?.locale === "ru" ? "ru" : "en-US"
+  } catch {
+    return "en-US"
+  }
+}
+
+app.commandLine.appendSwitch("lang", storedLanguage())
 
 let win
 let lan

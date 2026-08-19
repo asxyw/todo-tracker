@@ -18,8 +18,8 @@
 		A10000000000000000000009 /* StoreFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* StoreFile.swift */; };
 		A1000000000000000000000A /* LanSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* LanSync.swift */; };
 		A1000000000000000000000B /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* Views.swift */; };
-		A1000000000000000000000D /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* L10n.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* Assets.xcassets */; };
+		A1000000000000000000000D /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* L10n.swift */; };
 		A1000000000000000000000E /* UrgentActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* UrgentActivity.swift */; };
 		A1000000000000000000000F /* UrgentAlerts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* UrgentAlerts.swift */; };
 		W10000000000000000000001 /* UrgentWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = W20000000000000000000001 /* UrgentWidget.swift */; };
@@ -63,8 +63,8 @@
 		A20000000000000000000009 /* StoreFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreFile.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* LanSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanSync.swift; sourceTree = "<group>"; };
 		A2000000000000000000000B /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
-		A2000000000000000000000D /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A2000000000000000000000D /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* UrgentActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UrgentActivity.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* UrgentAlerts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UrgentAlerts.swift; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Task Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Task Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -331,7 +331,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios;
 				PRODUCT_NAME = "Task Tracker";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -367,7 +367,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios;
 				PRODUCT_NAME = "Task Tracker";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -395,7 +395,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios.widget;
 				PRODUCT_NAME = UrgentWidget;
 				SKIP_INSTALL = YES;
@@ -424,7 +424,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.asxyw.zadachi.ios.widget;
 				PRODUCT_NAME = UrgentWidget;
 				SKIP_INSTALL = YES;

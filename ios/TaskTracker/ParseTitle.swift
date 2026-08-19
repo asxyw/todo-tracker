@@ -18,7 +18,7 @@ enum ParseTitle {
     if let hit = take(raw, pattern: word("сегодня|today"), due: { _ in Dates.todayIso() })
       ?? take(raw, pattern: word("послезавтра|day after tomorrow"), due: { _ in Dates.addDaysIso(Dates.todayIso(), days: 2) })
       ?? take(raw, pattern: word("завтра|tomorrow"), due: { _ in Dates.addDaysIso(Dates.todayIso(), days: 1) })
-      ?? take(raw, pattern: #"\+(\d+)\s*(?:d|д(?:ен(?:ь|я|ей)?)?)(?![\\p{L}\\p{N}])"#, options: [.caseInsensitive], due: { m in
+      ?? take(raw, pattern: #"\+(\d+)\s*(?:days?|d|дн(?:ей|я)?|д(?:ен(?:ь|я|ей)?)?)(?![\p{L}\p{N}])"#, options: [.caseInsensitive], due: { m in
         Dates.addDaysIso(Dates.todayIso(), days: Int(m) ?? 0)
       }, group: 1)
       ?? takeDate(raw)
@@ -69,32 +69,46 @@ enum ParseTitle {
     return (next, due(captured))
   }
 
+  // "8/19" is month-first in English, day-first everywhere else. A dot is always
+  // day-first. Out-of-range halves are swapped, and dates that do not exist are
+  // left alone so the digits stay in the title.
   private static func takeDate(_ text: String) -> (title: String, due: String)? {
-    take(
-      text,
-      pattern: #"(?<![\p{L}\p{N}])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?![\p{L}\p{N}])"#,
-      options: [],
-      due: { _ in "" },
-      group: 0
-    ).flatMap { hit in
-      guard let re = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?![\p{L}\p{N}])"#),
-            let match = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-            let dR = Range(match.range(at: 1), in: text),
-            let mR = Range(match.range(at: 2), in: text)
-      else { return nil }
-      let day = Int(text[dR]) ?? 1
-      let month = Int(text[mR]) ?? 1
-      var year = Calendar.current.component(.year, from: Date())
-      if match.numberOfRanges > 3, match.range(at: 3).location != NSNotFound, let yR = Range(match.range(at: 3), in: text) {
-        year = Int(text[yR]) ?? year
-        if year < 100 { year += 2000 }
-      }
-      var parts = DateComponents()
-      parts.year = year
-      parts.month = month
-      parts.day = day
-      let date = Calendar.current.date(from: parts) ?? Date()
-      return (hit.title, Dates.iso(date))
+    let pattern = #"(?<![\p{L}\p{N}])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?![\p{L}\p{N}])"#
+    guard let re = try? NSRegularExpression(pattern: pattern),
+          let match = re.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+          let fullRange = Range(match.range, in: text),
+          let firstRange = Range(match.range(at: 1), in: text),
+          let secondRange = Range(match.range(at: 2), in: text),
+          let first = Int(text[firstRange]),
+          let second = Int(text[secondRange])
+    else { return nil }
+
+    var year = Calendar.current.component(.year, from: Date())
+    if match.numberOfRanges > 3,
+       match.range(at: 3).location != NSNotFound,
+       let yearRange = Range(match.range(at: 3), in: text),
+       let parsed = Int(text[yearRange]) {
+      year = parsed < 100 ? parsed + 2000 : parsed
     }
+
+    let monthFirst = L10n.code == "en" && text[fullRange].contains("/")
+    var month = monthFirst ? first : second
+    var day = monthFirst ? second : first
+    if month > 12, day <= 12 { swap(&month, &day) }
+
+    var parts = DateComponents()
+    parts.year = year
+    parts.month = month
+    parts.day = day
+    let calendar = Calendar(identifier: .gregorian)
+    guard let date = calendar.date(from: parts),
+          calendar.component(.month, from: date) == month,
+          calendar.component(.day, from: date) == day
+    else { return nil }
+
+    let next = (text[..<fullRange.lowerBound] + " " + text[fullRange.upperBound...])
+      .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    return (next, Dates.iso(date))
   }
 }
