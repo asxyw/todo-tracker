@@ -1,6 +1,34 @@
 # Task Tracker
 
-A personal task list for Mac and iPhone. English by default, with a **RU | EN** switch. Today, inbox, dated tasks, and one-step projects. Data is a JSON file on the device. Optional sync over local Wi‑Fi. No account, no cloud.
+A personal task list for Mac and iPhone. No account, no cloud, no subscription. The list is a JSON file on your own machine, and the two apps talk straight to each other over local Wi‑Fi. English by default, with a **RU | EN** switch.
+
+![Today in Task Tracker](docs/screenshots/today.png)
+
+## The idea
+
+Most task apps let Today fill up with everything you ever wrote down. Here each project sits in a **section**, and a section has exactly one rule about what it may push into Today.
+
+- **By date** — a task appears in Today on the day it is due. Suits errands, bills, appointments.
+- **One step** — a project contributes a single task to Today: its next step. Suits long builds that would otherwise dump twenty open items into your morning.
+
+Above, `Home` is a by-date section and `Dev` is a one-step section. The QA tool has six open tasks; Today shows one of them.
+
+![A one-step project](docs/screenshots/project.png)
+
+Pause a project and it leaves Today without losing anything. Mark a single task **not today** to push it aside. Anything with no date and no project waits in Inbox until you decide what it is.
+
+## Typing a date
+
+End a task with `today`, `tomorrow`, `fri`, or `+3d` and it picks up that date — no date picker needed. The week strip marks the days that already have something on them.
+
+![Upcoming](docs/screenshots/upcoming.png)
+
+## Before you install
+
+- The Mac build is **Apple Silicon only**, unsigned and not notarized.
+- The iPhone app is not on the App Store. You build it yourself in Xcode and re-run it every 7 days.
+- Sync needs both devices awake on the same Wi‑Fi. There is no server, so nothing moves while the Mac is asleep.
+- One person, one list. No sharing, no collaboration, no accounts.
 
 ## iPhone
 

@@ -461,7 +461,7 @@ function renderTask(task) {
     }),
     el("textarea", { class: "title", rows: "1", maxlength: "4000" }),
     el("span", {
-      class: `due-label${late ? " late" : isToday ? " today" : ""}${task.due ? "" : " empty"}`,
+      class: `due-label${late ? " late" : isToday ? " today" : ""}${task.due ? "" : " no-date"}`,
     }, [formatChip(task.due)]),
     el("div", { class: "tools" }, [
       inProjectView ? null : el("select", { class: "proj" }, [
