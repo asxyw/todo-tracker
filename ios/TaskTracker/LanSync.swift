@@ -3,11 +3,11 @@ import Network
 
 final class LanSync: @unchecked Sendable {
   static let port: NWEndpoint.Port = 17841
-  static let serviceType = "_zadachi._tcp"
+  static let serviceType = "_tasktracker._tcp"
 
   private var listener: NWListener?
   private var browser: NWBrowser?
-  private let queue = DispatchQueue(label: "zadachi.lan")
+  private let queue = DispatchQueue(label: "tasktracker.lan")
   var onRemote: ((Store) -> Store)?
   var onStatus: ((String) -> Void)?
   private var deviceId: String

@@ -7,7 +7,7 @@
   "main": "./src/main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . \"Task Tracker\" --platform=darwin --arch=arm64 --out=dist --overwrite --app-bundle-id=com.asxyw.zadachi --icon=build/icon.icns --extend-info=build/darwin-info.plist --asar.unpack=\"**/{*.node,electron-liquid-glass/**}\" --ignore='^/(\\.cache|dist|canvases|data|ios|Task Tracker\\.app)' && rm -rf \"Task Tracker.app\" && ditto \"dist/Task Tracker-darwin-arm64/Task Tracker.app\" \"Task Tracker.app\""
+    "pack": "electron-packager . \"Task Tracker\" --platform=darwin --arch=arm64 --out=dist --overwrite --app-bundle-id=com.asxyw.tasktracker --icon=build/icon.icns --extend-info=build/darwin-info.plist --asar.unpack=\"**/{*.node,electron-liquid-glass/**}\" --ignore='^/(\\.cache|dist|canvases|data|ios|Task Tracker\\.app)' && rm -rf \"Task Tracker.app\" && ditto \"dist/Task Tracker-darwin-arm64/Task Tracker.app\" \"Task Tracker.app\""
   },
   "devDependencies": {
     "@electron/packager": "^19.0.0",

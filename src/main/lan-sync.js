@@ -3,7 +3,7 @@ import { spawn } from "node:child_process"
 import { diffStores, mergeStores, migrate, uid } from "../lib/domain.js"
 
 const PORT = 17841
-const SERVICE = "_zadachi._tcp"
+const SERVICE = "_tasktracker._tcp"
 const MAC_NAMES = new Set(["Task Tracker Mac"])
 
 function readFrame(socket, timeoutMs = 8000) {
@@ -70,8 +70,8 @@ function browsePhones(onName) {
   child.stdout.setEncoding("utf8")
   child.stdout.on("data", (chunk) => {
     for (const line of String(chunk).split("\n")) {
-      if (!/\bAdd\b/.test(line) || !/_zadachi\._tcp/i.test(line)) continue
-      const name = line.replace(/^.*_zadachi\._tcp\.\s+/i, "").trim()
+      if (!/\bAdd\b/.test(line) || !/_tasktracker\._tcp/i.test(line)) continue
+      const name = line.replace(/^.*_tasktracker\._tcp\.\s+/i, "").trim()
       if (!isPhoneName(name) || seen.has(name)) continue
       seen.add(name)
       onName(name)

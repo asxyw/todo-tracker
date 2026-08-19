@@ -4,7 +4,7 @@
 <dict>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_zadachi._tcp.</string>
+		<string>_tasktracker._tcp.</string>
 	</array>
 </dict>
 </plist>

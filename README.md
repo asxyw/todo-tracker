@@ -23,6 +23,18 @@ End a task with `today`, `tomorrow`, `fri`, or `+3d` and it picks up that date �
 
 ![Upcoming](docs/screenshots/upcoming.png)
 
+## On the iPhone
+
+The same list on the phone. Sections and next steps behave exactly as they do on the Mac, and the two apps find each other over local Wi‑Fi — the banner tells you when the Mac is out of reach.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/ios-today.png" width="260" alt="Today on iPhone"></td>
+<td><img src="docs/screenshots/ios-projects.png" width="260" alt="Sections and projects on iPhone"></td>
+<td><img src="docs/screenshots/ios-project.png" width="260" alt="A one-step project on iPhone"></td>
+</tr>
+</table>
+
 ## Before you install
 
 - The Mac build is **Apple Silicon only**, unsigned and not notarized.
@@ -47,7 +59,7 @@ Match Xcode to the iPhone OS. On the phone: **Settings → General → Software 
 2. Clone this repository.
 3. Open `ios/TaskTracker.xcodeproj` in that Xcode (beta Xcode if the phone is on beta iOS).
 4. In the toolbar, choose the **Task Tracker** scheme. Plug the iPhone in with USB, unlock it, tap **Trust**. Select that iPhone as the run destination — not a simulator.
-5. Select the **Task Tracker** target → **Signing & Capabilities**. Turn on **Automatically manage signing**. Set **Team** to your Apple ID. If Xcode says the bundle id `com.asxyw.zadachi.ios` is taken, change it to something unique, for example `com.yourname.tasktracker`.
+5. Select the **Task Tracker** target → **Signing & Capabilities**. Turn on **Automatically manage signing**. Set **Team** to your Apple ID. If Xcode says the bundle id `com.asxyw.tasktracker.ios` is taken, change it to something unique, for example `com.yourname.tasktracker`.
 6. On the iPhone, if asked: **Settings → Privacy & Security → Developer Mode** → On, then restart the phone.
 7. In Xcode press **Run** (⌘R). Wait until the app launches on the phone.
 8. First launch: if iOS says the developer is not trusted, go to **Settings → General → VPN & Device Management**, tap your Apple ID, **Trust**.
