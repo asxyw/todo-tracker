@@ -37,6 +37,7 @@ export const ui = {
   syncDiff: null,
   urgentMinutes: null,
   urgentAlert: "push",
+  urgentPickCustom: false,
   store: { schemaVersion: 8, projects: [], tasks: [], deleted: { tasks: [], projects: [] }, settings: {} },
 }
 
@@ -50,18 +51,33 @@ function snapshot() {
   if (history.length > 40) history.shift()
 }
 
+let persistBusy = false
+let persistAgain = false
+
 async function persist() {
-  const persistable = ["today", "inbox", "upcoming", "all", "archive", "project"]
-  if (persistable.includes(ui.view.type)) ui.store = setLastView(ui.store, ui.view)
-  ui.store = {
-    ...ui.store,
-    settings: {
-      ...ui.store.settings,
-      locale: locale(),
-      updatedAt: Date.now(),
-    },
+  if (persistBusy) {
+    persistAgain = true
+    return
   }
-  await window.tasksApi.save(ui.store)
+  persistBusy = true
+  try {
+    do {
+      persistAgain = false
+      const persistable = ["today", "inbox", "upcoming", "all", "archive", "project"]
+      if (persistable.includes(ui.view.type)) ui.store = setLastView(ui.store, ui.view)
+      ui.store = {
+        ...ui.store,
+        settings: {
+          ...ui.store.settings,
+          locale: locale(),
+          updatedAt: Date.now(),
+        },
+      }
+      await window.tasksApi.save(ui.store)
+    } while (persistAgain)
+  } finally {
+    persistBusy = false
+  }
 }
 
 export function commit(next, { record = true } = {}) {
@@ -95,6 +111,9 @@ export function setView(view) {
   ui.addingZone = null
   if (view.type === "upcoming") ui.weekAnchor = startOfWeek(parseViewDate(view.date))
   if (view.type === "today") ui.weekAnchor = startOfWeek(new Date())
+  if (["today", "inbox", "upcoming", "all", "archive", "project"].includes(view.type)) {
+    void persist()
+  }
 }
 
 function parseViewDate(value) {
@@ -352,6 +371,7 @@ export function loadInto(store, { keepView = false } = {}) {
   const validProject = last?.type === "project" && store.projects.some((row) => row.id === last.id)
   const views = ["today", "inbox", "upcoming", "all", "archive"]
   if (last?.type === "project" && validProject) setView(last)
+  else if (last?.type === "project") setView({ type: "all" })
   else if (views.includes(last?.type)) setView(last)
   else setView({ type: "today" })
 }

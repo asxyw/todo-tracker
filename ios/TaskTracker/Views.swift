@@ -8,9 +8,6 @@ struct RootView: View {
   var body: some View {
     @Bindable var model = model
     VStack(spacing: 0) {
-      if let task = Domain.activeUrgent(model.store).first {
-        UrgentBanner(task: task)
-      }
       TabView(selection: tabBinding) {
       NavigationStack {
         TaskBoardView()
@@ -41,7 +38,17 @@ struct RootView: View {
     .preferredColorScheme(.dark)
     .id(model.locale)
     .onChange(of: scenePhase) { _, phase in
-      if phase == .active { model.pingNetwork() }
+      UrgentAlerts.foreground = phase == .active
+      if phase == .active {
+        model.pingNetwork()
+        UrgentAlerts.syncIslandWhenReady(model.store)
+      } else {
+        UrgentAlerts.sync(model.store)
+      }
+    }
+    .onAppear {
+      UrgentAlerts.foreground = true
+      model.pingNetwork()
     }
     .onChange(of: model.view) { _, _ in
       model.query = ""
@@ -74,44 +81,6 @@ struct RootView: View {
         else { model.syncChipsToView() }
       }
     )
-  }
-}
-
-struct UrgentBanner: View {
-  @Environment(AppModel.self) private var model
-  let task: TaskItem
-
-  var body: some View {
-    TimelineView(.periodic(from: .now, by: 1)) { timeline in
-      HStack(spacing: 10) {
-        Text(task.title)
-          .font(.subheadline.weight(.semibold))
-          .lineLimit(1)
-        Spacer(minLength: 8)
-        Text(left(at: timeline.date))
-          .font(.subheadline.monospacedDigit().weight(.semibold))
-        if task.urgentAlert == "island" {
-          Button(L10n.t("urgentHideIsland")) { model.hideIsland() }
-            .font(.caption)
-        }
-        Button(L10n.t("urgentStop")) { model.clearUrgent(task.id) }
-          .font(.caption)
-      }
-      .padding(.horizontal, 14)
-      .padding(.vertical, 8)
-      .background(Color.orange.opacity(0.22))
-    }
-  }
-
-  private func left(at date: Date) -> String {
-    let ms = (task.urgentUntil ?? 0) - date.timeIntervalSince1970 * 1000
-    if ms <= 0 { return L10n.t("urgentNow") }
-    let minutes = max(1, Int(ceil(ms / 60_000)))
-    if minutes < 60 { return L10n.t("urgentMin", n: minutes) }
-    let hours = minutes / 60
-    let rest = minutes % 60
-    if rest == 0 { return L10n.t("urgentHour", ["h": String(hours)]) }
-    return L10n.t("urgentHourMin", ["h": String(hours), "m": String(rest)])
   }
 }
 
@@ -354,6 +323,10 @@ struct ComposerView: View {
           urgentAlertChip(L10n.t("urgentPush"), alert: "push")
           urgentAlertChip(L10n.t("urgentIsland"), alert: "island")
         }
+        Text(L10n.t("urgentIslandHint"))
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
     .padding(12)

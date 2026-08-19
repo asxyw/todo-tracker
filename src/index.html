@@ -57,15 +57,18 @@
         <button type="button" data-urgent="30">30 min</button>
         <button type="button" data-urgent="60">1 h</button>
         <button type="button" data-urgent="120">2 h</button>
+        <button type="button" data-urgent-custom>Custom</button>
         <button type="button" data-alert="push">Push only</button>
-        <button type="button" data-alert="island">Push + island</button>
+        <button type="button" data-alert="island">Always on</button>
+      </div>
+      <p class="urgent-hint" id="urgent-hint" hidden></p>
+      <div class="urgent-custom" id="urgent-custom" hidden>
+        <select id="urgent-hours" aria-label="Hours"></select>
+        <span id="urgent-hours-label">h</span>
+        <select id="urgent-mins" aria-label="Minutes"></select>
+        <span id="urgent-mins-label">min</span>
       </div>
       <p class="composer-hint" id="composer-hint">Add to: Today</p>
-      <div class="urgent-banner" id="urgent-banner" hidden>
-        <span class="urgent-banner-copy" id="urgent-banner-copy"></span>
-        <span class="urgent-banner-time" id="urgent-banner-time"></span>
-        <button type="button" class="ghost-btn" id="urgent-clear"></button>
-      </div>
       <div class="board" id="board"></div>
     </main>
   </div>

@@ -7,7 +7,7 @@ import { createRequire } from "node:module"
 import { copyFile } from "node:fs/promises"
 import { dataDir, loadStore, saveStore, storePath } from "./main/repository.js"
 import { startLanSync } from "./main/lan-sync.js"
-import { scheduleUrgentAlerts } from "./main/urgent-alerts.js"
+import { scheduleUrgentAlerts, setNotifyIcon } from "./main/urgent-alerts.js"
 import { smartCounts } from "./lib/selectors.js"
 import { locale, setLocale, t } from "./lib/i18n.js"
 
@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url)
 
 nativeTheme.themeSource = "dark"
 app.setName("Task Tracker")
-app.setPath("userData", join(homedir(), "Library/Application Support/Задачи"))
+app.setPath("userData", join(homedir(), "Library/Application Support/Task Tracker"))
 
 let win
 let lan
@@ -71,7 +71,7 @@ function buildMenu() {
             })
             if (canceled || !filePath) return
             try { await copyFile(storePath(), filePath) } catch (error) {
-              console.error("[задачи] export", error)
+              console.error("[task-tracker] export", error)
             }
           },
         },
@@ -127,7 +127,7 @@ async function applyNativeGlass(window) {
         return true
       }
     } catch (error) {
-      console.error("[задачи] setGlassEffect", error)
+      console.error("[task-tracker] setGlassEffect", error)
     }
   }
   try {
@@ -144,7 +144,7 @@ async function applyNativeGlass(window) {
       return true
     }
   } catch (error) {
-    console.error("[задачи] liquid-glass", error)
+    console.error("[task-tracker] liquid-glass", error)
   }
   return false
 }
@@ -171,7 +171,7 @@ function createWindow() {
   win.setWindowButtonVisibility(true)
   void win.loadFile(join(root, "index.html"))
   win.webContents.on("did-fail-load", (_event, code, desc) => {
-    console.error("[задачи] load fail", code, desc)
+    console.error("[task-tracker] load fail", code, desc)
   })
   const sendFullscreen = () => {
     win?.webContents.send("chrome:fullscreen", Boolean(win?.isFullScreen()))
@@ -187,8 +187,11 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   const iconPath = join(root, "..", "build", "icon.png")
-  if (existsSync(iconPath)) app.dock?.setIcon(nativeImage.createFromPath(iconPath))
-  console.log("[задачи]", app.getVersion(), dataDir())
+  if (existsSync(iconPath)) {
+    app.dock?.setIcon(nativeImage.createFromPath(iconPath))
+    setNotifyIcon(iconPath)
+  }
+  console.log("[task-tracker]", app.getVersion(), dataDir())
   const store = await loadStore()
   setLocale(store.settings?.locale)
   updateBadge(store)
@@ -202,6 +205,7 @@ app.whenReady().then(async () => {
     const next = await saveStore(data)
     applyStoreLocale(next)
     updateBadge(next)
+    lan?.pushNow?.()
     return next
   })
   ipcMain.handle("app:meta", () => ({ version: app.getVersion(), dataDir: dataDir() }))

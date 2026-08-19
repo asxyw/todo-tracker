@@ -15,7 +15,7 @@ import {
   ui,
   undo,
 } from "./controller.js"
-import { bindChrome, focusComposer, formatUrgentLeft, render } from "./ui.js"
+import { bindChrome, focusComposer, render } from "./ui.js"
 import { addDaysIso, todayIso } from "../lib/dates.js"
 import { syncDiffCount } from "../lib/domain.js"
 import { t } from "../lib/i18n.js"
@@ -38,6 +38,7 @@ bindChrome({
     if (addTask(title, due || null, extra)) {
       ui.urgentMinutes = null
       ui.urgentAlert = "push"
+      ui.urgentPickCustom = false
       render()
     }
   },
@@ -184,10 +185,10 @@ Promise.all([window.tasksApi.load(), window.tasksApi.meta()]).then(([data, meta]
   loadInto(data)
   render()
   focusComposer()
+  window.Notification?.requestPermission?.()
   window.tasksApi.onSync((payload) => {
     const next = payload?.store || payload
-    const stay = ui.view.type === "settings" || ui.view.type === "sync"
-    loadInto(next, { keepView: stay })
+    loadInto(next, { keepView: true })
     if (payload?.diff && syncDiffCount(payload.diff)) {
       ui.syncDiff = payload.diff
       if (ui.view.type !== "sync") {
@@ -202,12 +203,8 @@ Promise.all([window.tasksApi.load(), window.tasksApi.meta()]).then(([data, meta]
     if (next !== day) {
       day = next
       render()
-      return
     }
-    const time = document.getElementById("urgent-banner-time")
-    const until = Number(document.getElementById("urgent-banner")?.dataset.until)
-    if (time && until) time.textContent = formatUrgentLeft(until)
-  }, 1000)
+  }, 60_000)
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) render()
   })

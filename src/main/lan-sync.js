@@ -4,7 +4,7 @@ import { diffStores, mergeStores, migrate, uid } from "../lib/domain.js"
 
 const PORT = 17841
 const SERVICE = "_zadachi._tcp"
-const MAC_NAMES = new Set(["Задачи Mac", "Task Tracker Mac"])
+const MAC_NAMES = new Set(["Task Tracker Mac"])
 
 function readFrame(socket, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
@@ -55,13 +55,13 @@ function writeFrame(socket, payload) {
 
 function advertise(name) {
   const child = spawn("dns-sd", ["-R", name, SERVICE, "local", String(PORT)], { stdio: "ignore" })
-  child.on("error", (error) => console.error("[задачи] dns-sd", error))
+  child.on("error", (error) => console.error("[task-tracker] dns-sd", error))
   return child
 }
 
 function isPhoneName(name) {
   if (!name || MAC_NAMES.has(name)) return false
-  return /task tracker/i.test(name) || /задачи/i.test(name)
+  return /task tracker/i.test(name)
 }
 
 function browsePhones(onName) {
@@ -77,7 +77,7 @@ function browsePhones(onName) {
       onName(name)
     }
   })
-  child.on("error", (error) => console.error("[задачи] dns-sd browse", error))
+  child.on("error", (error) => console.error("[task-tracker] dns-sd browse", error))
   return child
 }
 
@@ -102,6 +102,24 @@ function resolveService(name) {
   })
 }
 
+function storeFingerprint(store) {
+  return JSON.stringify({
+    t: (store?.tasks || []).map((row) => [row.id, row.updatedAt, row.done, row.urgentUntil, row.urgentAlert]),
+    p: (store?.projects || []).map((row) => [row.id, row.updatedAt, row.status, row.name]),
+    d: store?.deleted || {},
+    s: store?.settings || {},
+  })
+}
+
+async function applyMerge({ save, onMerged, local, incoming }) {
+  const merged = mergeStores(local, incoming)
+  if (storeFingerprint(merged) === storeFingerprint(local)) return local
+  const diff = diffStores(local, incoming)
+  await save(merged)
+  onMerged?.(merged, diff)
+  return merged
+}
+
 async function exchange(socket, { load, save, onMerged, getDeviceId }) {
   const local = await load()
   const deviceId = getDeviceId(local)
@@ -109,10 +127,7 @@ async function exchange(socket, { load, save, onMerged, getDeviceId }) {
   const raw = await readFrame(socket)
   const envelope = JSON.parse(raw.toString("utf8"))
   if (!envelope?.store || envelope.deviceId === deviceId) return
-  const merged = mergeStores(local, migrate(envelope.store))
-  const diff = diffStores(local, migrate(envelope.store))
-  await save(merged)
-  onMerged?.(merged, diff)
+  await applyMerge({ load, save, onMerged, local, incoming: migrate(envelope.store) })
 }
 
 export function startLanSync({ load, save, onMerged }) {
@@ -131,25 +146,36 @@ export function startLanSync({ load, save, onMerged }) {
       const id = getDeviceId(local)
       if (envelope.deviceId && envelope.deviceId === id) return
       const incoming = migrate(envelope.store)
-      const merged = mergeStores(local, incoming)
-      const diff = diffStores(local, incoming)
-      await save(merged)
-      onMerged?.(merged, diff)
+      const merged = await applyMerge({ load, save, onMerged, local, incoming })
       await writeFrame(socket, { deviceId: id, store: merged })
     } catch (error) {
-      console.error("[задачи] lan", error)
+      console.error("[task-tracker] lan", error)
     } finally {
       socket.end()
     }
   })
   server.listen(PORT)
-  server.on("error", (error) => console.error("[задачи] lan listen", error))
+  server.on("error", (error) => console.error("[task-tracker] lan listen", error))
 
-  const ads = [advertise("Task Tracker Mac"), advertise("Задачи Mac")]
+  const ads = [advertise("Task Tracker Mac")]
 
+  const inflight = new Set()
+  const pending = new Set()
   const pullPhone = async (name) => {
+    if (inflight.has(name)) {
+      pending.add(name)
+      return
+    }
+    inflight.add(name)
     const target = await resolveService(name)
-    if (!target) return
+    if (!target) {
+      inflight.delete(name)
+      if (pending.has(name)) {
+        pending.delete(name)
+        void pullPhone(name)
+      }
+      return
+    }
     const socket = connect({ port: target.port, host: target.host })
     try {
       await new Promise((resolve, reject) => {
@@ -159,9 +185,14 @@ export function startLanSync({ load, save, onMerged }) {
       })
       await exchange(socket, { load, save, onMerged, getDeviceId })
     } catch (error) {
-      console.error("[задачи] lan phone", name, error.message)
+      console.error("[task-tracker] lan phone", name, error.message)
     } finally {
       socket.end()
+      inflight.delete(name)
+      if (pending.has(name)) {
+        pending.delete(name)
+        void pullPhone(name)
+      }
     }
   }
 
@@ -172,9 +203,12 @@ export function startLanSync({ load, save, onMerged }) {
   })
   const timer = setInterval(() => {
     for (const name of phones) void pullPhone(name)
-  }, 10000)
+  }, 6000)
 
   return {
+    pushNow: () => {
+      for (const name of phones) void pullPhone(name)
+    },
     stop: () => {
       clearInterval(timer)
       server.close()

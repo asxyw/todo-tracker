@@ -2,10 +2,23 @@ import Foundation
 
 enum StoreFile {
   static var url: URL {
-    let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    let folder = dir.appendingPathComponent("Задачи", isDirectory: true)
-    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    return folder.appendingPathComponent("tasks.json")
+    let manager = FileManager.default
+    let dir = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    let folder = dir.appendingPathComponent("Task Tracker", isDirectory: true)
+    try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
+    let file = folder.appendingPathComponent("tasks.json")
+    adoptLegacy(into: file, from: dir)
+    return file
+  }
+
+  private static func adoptLegacy(into file: URL, from dir: URL) {
+    let manager = FileManager.default
+    guard !manager.fileExists(atPath: file.path) else { return }
+    // Folder used before the app was renamed to Task Tracker.
+    let legacy = dir.appendingPathComponent("Задачи", isDirectory: true)
+      .appendingPathComponent("tasks.json")
+    guard manager.fileExists(atPath: legacy.path) else { return }
+    try? manager.copyItem(at: legacy, to: file)
   }
 
   static func load() -> Store {

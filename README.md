@@ -57,7 +57,7 @@ xattr -cr "/path/to/Task Tracker.app"
 open "/path/to/Task Tracker.app"
 ```
 
-Tasks are stored at `~/Library/Application Support/Задачи/tasks.json`. Nothing is uploaded.
+Tasks are stored at `~/Library/Application Support/Task Tracker/tasks.json`. Nothing is uploaded. Upgrading from an older build moves the list over from the previous folder on first launch.
 
 ## Source
 

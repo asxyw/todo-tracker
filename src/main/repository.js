@@ -1,4 +1,4 @@
-import { appendFile, copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises"
+import { appendFile, copyFile, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
@@ -32,15 +32,29 @@ function siblingDataFile() {
   return join(projectRoot(), "data", "tasks.json")
 }
 
-function legacyStoreFiles() {
+async function legacyStoreFiles() {
   const home = homedir()
-  return [
+  const support = join(home, "Library/Application Support")
+  const candidates = [
     siblingDataFile(),
     join(projectRoot(), "data", "tasks.json"),
-    join(home, "Library/Application Support/Задачи/tasks.json"),
-    join(home, "Library/Application Support/todo-tracker/tasks.json"),
-    join(home, "Library/Application Support/Electron/tasks.json"),
+    // Folder used before the app was renamed to Task Tracker.
+    join(support, "Задачи/tasks.json"),
+    join(support, "todo-tracker/tasks.json"),
+    join(support, "Electron/tasks.json"),
   ]
+  const found = []
+  const seen = new Set()
+  for (const path of candidates) {
+    if (!path || seen.has(path) || path === storePath() || !existsSync(path)) continue
+    seen.add(path)
+    try {
+      found.push({ path, at: (await stat(path)).mtimeMs })
+    } catch {
+      /* unreadable */
+    }
+  }
+  return found.sort((a, b) => b.at - a.at).map((row) => row.path)
 }
 
 function stamp() {
@@ -49,7 +63,9 @@ function stamp() {
 
 function summarize(store) {
   const open = store.tasks.filter((task) => !task.done).length
-  return `projects=${store.projects.length} tasks=${store.tasks.length} open=${open}`
+  const view = store.settings?.lastView
+  const viewLabel = view?.type === "project" ? `project:${view.id || "?"}` : (view?.type || "?")
+  return `projects=${store.projects.length} tasks=${store.tasks.length} open=${open} view=${viewLabel}`
 }
 
 async function ensureDataDir() {
@@ -63,7 +79,7 @@ async function logChange(line) {
     await ensureDataDir()
     await appendFile(logFile(), `${stamp()}  ${line}\n`, "utf8")
   } catch (error) {
-    console.error("[задачи] log", error)
+    console.error("[task-tracker] log", error)
   }
 }
 
@@ -90,11 +106,7 @@ async function copySidecar(fromDir) {
 }
 
 async function migrateFromLegacy() {
-  const seen = new Set()
-  for (const path of legacyStoreFiles()) {
-    if (!path || seen.has(path) || !existsSync(path)) continue
-    seen.add(path)
-    if (path === storePath()) continue
+  for (const path of await legacyStoreFiles()) {
     try {
       const store = await readJson(path)
       if (!store.tasks.length && !store.projects.length) continue

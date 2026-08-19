@@ -38,14 +38,22 @@ enum StoreMerge {
       projects: Array(projects.values).sorted { $0.createdAt < $1.createdAt },
       tasks: Array(tasks.values).sorted { $0.createdAt > $1.createdAt },
       settings: Settings(
-        lastView: newerSettings.lastView,
+        lastView: resolvedLastView(local.settings.lastView, projects: Array(projects.values)),
         zones: zones.isEmpty ? Domain.defaultZones() : Array(zones.values),
         deviceId: local.settings.deviceId ?? remote.settings.deviceId,
-        locale: newerSettings.locale ?? local.settings.locale ?? remote.settings.locale ?? "en",
+        locale: local.settings.locale ?? newerSettings.locale ?? remote.settings.locale ?? "en",
         updatedAt: max(localSet, remoteSet)
       ),
       deleted: Deleted(tasks: deletedTasks, projects: deletedProjects)
     )
+  }
+
+  private static func resolvedLastView(_ last: LastView, projects: [Project]) -> LastView {
+    if last.type == "project" {
+      if let id = last.id, projects.contains(where: { $0.id == id }) { return last }
+      return LastView(type: "all")
+    }
+    return last
   }
 
   private static func mergeTaskTombs(_ rows: [DeletedEntry], live: [String: TaskItem]) -> [DeletedEntry] {

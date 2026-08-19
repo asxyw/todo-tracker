@@ -15,7 +15,7 @@ import {
   smartCounts,
   visibleTasks,
 } from "../lib/selectors.js"
-import { activeUrgent, isFocusProject, listZones, syncDiffCount, zoneById } from "../lib/domain.js"
+import { isFocusProject, listZones, syncDiffCount, zoneById } from "../lib/domain.js"
 import { locale, t, weekdays, repeatCaption, repeatShort } from "../lib/i18n.js"
 import {
   addNextFromPrompt,
@@ -26,7 +26,6 @@ import {
   changeProject,
   changeZone,
   completeTask,
-  clearUrgentTask,
   composerDefaults,
   cycleRepeat,
   flashToast,
@@ -76,7 +75,6 @@ export function render() {
   renderWeek()
   renderNextPrompt()
   renderBoard()
-  renderUrgentBanner()
   renderToast()
   revealSelected()
 }
@@ -95,18 +93,42 @@ function applyChrome() {
   if (tomorrowChip) tomorrowChip.textContent = t("tomorrow")
   if (noneChip) noneChip.textContent = t("noDate")
   const urgentChips = document.getElementById("urgent-chips")
+  const presets = [30, 60, 120]
+  const customOn = Boolean(ui.urgentPickCustom)
   urgentChips?.querySelectorAll("[data-urgent]").forEach((btn) => {
     const minutes = Number(btn.dataset.urgent)
     btn.textContent = minutes === 30 ? t("urgent30") : minutes === 60 ? t("urgent1h") : t("urgent2h")
-    btn.classList.toggle("active", ui.urgentMinutes === minutes)
+    btn.classList.toggle("active", !customOn && ui.urgentMinutes === minutes)
   })
+  const customBtn = urgentChips?.querySelector("[data-urgent-custom]")
+  if (customBtn) {
+    const customMinutes = customOn && ui.urgentMinutes && !presets.includes(ui.urgentMinutes)
+    customBtn.textContent = customMinutes ? formatUrgentMinutes(ui.urgentMinutes) : t("urgentCustom")
+    customBtn.classList.toggle("active", customOn)
+  }
   urgentChips?.querySelectorAll("[data-alert]").forEach((btn) => {
     btn.textContent = btn.dataset.alert === "island" ? t("urgentIsland") : t("urgentPush")
     btn.classList.toggle("active", ui.urgentMinutes && ui.urgentAlert === btn.dataset.alert)
     btn.hidden = !ui.urgentMinutes
   })
-  const urgentClear = document.getElementById("urgent-clear")
-  if (urgentClear) urgentClear.textContent = t("urgentStop")
+  const urgentHint = document.getElementById("urgent-hint")
+  if (urgentHint) {
+    urgentHint.textContent = t("urgentIslandHint")
+    urgentHint.hidden = !ui.urgentMinutes
+  }
+  const customRow = document.getElementById("urgent-custom")
+  if (customRow) {
+    customRow.hidden = !customOn
+    document.getElementById("urgent-hours-label").textContent = t("urgentHourUnit")
+    document.getElementById("urgent-mins-label").textContent = t("urgentMinUnit")
+    if (customOn) {
+      const total = Math.max(1, Number(ui.urgentMinutes) || 15)
+      const hoursEl = document.getElementById("urgent-hours")
+      const minsEl = document.getElementById("urgent-mins")
+      hoursEl.value = String(Math.min(23, Math.floor(total / 60)))
+      minsEl.value = String(total % 60)
+    }
+  }
   const addBtn = document.querySelector(".add-btn")
   if (addBtn) addBtn.textContent = t("add")
   dateInput.setAttribute("aria-label", t("date"))
@@ -123,29 +145,12 @@ function tomorrowIso() {
   return iso(date)
 }
 
-export function formatUrgentLeft(until, now = Date.now()) {
-  const ms = until - now
-  if (ms <= 0) return t("urgentNow")
-  const minutes = Math.max(1, Math.ceil(ms / 60000))
-  if (minutes < 60) return t("urgentMin", { n: minutes })
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
+function formatUrgentMinutes(minutes) {
+  const n = Math.max(1, Math.round(Number(minutes) || 0))
+  if (n < 60) return t("urgentMin", { n })
+  const hours = Math.floor(n / 60)
+  const rest = n % 60
   return rest ? t("urgentHourMin", { h: hours, m: rest }) : t("urgentHour", { h: hours })
-}
-
-function renderUrgentBanner() {
-  const banner = document.getElementById("urgent-banner")
-  if (!banner) return
-  const [task] = activeUrgent(ui.store)
-  if (!task) {
-    banner.hidden = true
-    banner.dataset.until = ""
-    return
-  }
-  banner.hidden = false
-  banner.dataset.until = String(task.urgentUntil)
-  document.getElementById("urgent-banner-copy").textContent = task.title
-  document.getElementById("urgent-banner-time").textContent = formatUrgentLeft(task.urgentUntil)
 }
 
 function renderSmart() {
@@ -275,6 +280,8 @@ function renderHeader() {
   document.getElementById("composer").hidden = settings || syncing || archive
   document.querySelector(".date-chips").hidden = settings || syncing || archive
   document.getElementById("urgent-chips").hidden = settings || syncing || archive
+  const customRow = document.getElementById("urgent-custom")
+  if (customRow) customRow.hidden = settings || syncing || archive || !ui.urgentPickCustom
   hintEl.hidden = settings || syncing || archive
   const { kicker, title } = headerCopy(ui.store, ui.view)
   kickerEl.textContent = searching ? t("everywhere") : kicker
@@ -913,6 +920,16 @@ export function focusComposer() {
   input.select()
 }
 
+function fillUrgentSelect(el, count) {
+  if (!el || el.options.length) return
+  for (let i = 0; i < count; i += 1) {
+    const option = document.createElement("option")
+    option.value = String(i)
+    option.textContent = String(i)
+    el.append(option)
+  }
+}
+
 export function bindChrome({ onAdd, onSearch }) {
   document.getElementById("composer").addEventListener("submit", (event) => {
     event.preventDefault()
@@ -933,9 +950,22 @@ export function bindChrome({ onAdd, onSearch }) {
     input.focus()
   })
   document.getElementById("urgent-chips")?.addEventListener("click", (event) => {
+    const customBtn = event.target.closest("[data-urgent-custom]")
+    if (customBtn) {
+      ui.urgentPickCustom = !ui.urgentPickCustom
+      if (ui.urgentPickCustom) {
+        ui.urgentMinutes = ui.urgentMinutes || 15
+        if (!ui.urgentAlert) ui.urgentAlert = "push"
+      } else if (![30, 60, 120].includes(ui.urgentMinutes)) {
+        ui.urgentMinutes = null
+      }
+      render()
+      return
+    }
     const minutesBtn = event.target.closest("[data-urgent]")
     if (minutesBtn) {
       const minutes = Number(minutesBtn.dataset.urgent)
+      ui.urgentPickCustom = false
       ui.urgentMinutes = ui.urgentMinutes === minutes ? null : minutes
       if (ui.urgentMinutes && !ui.urgentAlert) ui.urgentAlert = "push"
       render()
@@ -946,10 +976,16 @@ export function bindChrome({ onAdd, onSearch }) {
     ui.urgentAlert = alertBtn.dataset.alert
     render()
   })
-  document.getElementById("urgent-clear")?.addEventListener("click", () => {
-    const [task] = activeUrgent(ui.store)
-    if (!task) return
-    clearUrgentTask(task.id)
+  fillUrgentSelect(document.getElementById("urgent-hours"), 24)
+  fillUrgentSelect(document.getElementById("urgent-mins"), 60)
+  document.getElementById("urgent-custom")?.addEventListener("change", () => {
+    const hours = Number(document.getElementById("urgent-hours").value)
+    const minutes = Number(document.getElementById("urgent-mins").value)
+    const total = hours * 60 + minutes
+    if (total <= 0) return
+    ui.urgentPickCustom = true
+    ui.urgentMinutes = total
+    if (!ui.urgentAlert) ui.urgentAlert = "push"
     render()
   })
   searchInput.addEventListener("input", () => onSearch(searchInput.value))

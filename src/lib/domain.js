@@ -140,10 +140,6 @@ export function migrate(raw) {
     urgentUntil: keepUrgentUntil(task.urgentUntil),
     urgentAlert: keepUrgentAlert(task.urgentAlert),
   }))
-  const lastView = raw.settings?.lastView
-  const viewType = lastView?.type === "daily" || lastView?.type === "calendar"
-    ? (lastView.type === "daily" ? "inbox" : "upcoming")
-    : lastView?.type
   return {
     schemaVersion: 8,
     projects,
@@ -153,7 +149,7 @@ export function migrate(raw) {
       projects: asDeletedList(raw.deleted?.projects),
     },
     settings: {
-      lastView: viewType ? { ...lastView, type: viewType } : { type: "today" },
+      lastView: resolveLastView(raw.settings?.lastView, projects),
       zones,
       deviceId: raw.settings?.deviceId || uid(),
       locale: keepLocale(raw.settings?.locale),
@@ -425,9 +421,24 @@ export function deleteProject(store, id) {
   return next
 }
 
+export function resolveLastView(lastView, projects = []) {
+  const type = lastView?.type
+  if (type === "daily") return { type: "inbox" }
+  if (type === "calendar") {
+    return lastView.date ? { type: "upcoming", date: lastView.date } : { type: "upcoming" }
+  }
+  if (type === "project") {
+    const id = lastView.id
+    if (id && projects.some((row) => row.id === id)) return { type: "project", id }
+    return { type: "all" }
+  }
+  if (["today", "inbox", "upcoming", "all", "archive"].includes(type)) return lastView
+  return { type: "today" }
+}
+
 export function setLastView(store, view) {
   const next = clone(store)
-  next.settings = { ...next.settings, lastView: view }
+  next.settings = { ...next.settings, lastView: resolveLastView(view, next.projects) }
   return next
 }
 
@@ -466,10 +477,10 @@ export function mergeStores(local, remote) {
     tasks: [...tasks.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     deleted,
     settings: {
-      lastView: newer?.lastView || { type: "today" },
+      lastView: resolveLastView(local.settings?.lastView, [...projects.values()]),
       zones: zones.size ? [...zones.values()] : defaultZones(),
       deviceId: local.settings?.deviceId || remote.settings?.deviceId || uid(),
-      locale: keepLocale(newer?.locale || local.settings?.locale || remote.settings?.locale),
+      locale: keepLocale(local.settings?.locale || newer?.locale || remote.settings?.locale),
       updatedAt: Math.max(localSet, remoteSet),
     },
   }

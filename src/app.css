@@ -117,7 +117,8 @@ html.native-glass .composer {
 .date-chips,
 .composer-hint,
 .urgent-chips,
-.urgent-banner,
+.urgent-custom,
+.urgent-hint,
 #open-settings {
   flex-shrink: 0;
 }
@@ -129,7 +130,7 @@ html.native-glass .composer {
   border-radius: 0;
 }
 
-nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .sync-open, .lang-switch, .sidebar-chrome, .date-chips, .urgent-chips, .urgent-banner, .next-prompt, .toast, h1, button, input, select, textarea {
+nav, form, .board, .week, .block-label, .new-list, .project-draft, .composer-hint, .top-meta, .project-head, .zones, .top, .app-version, .sync-open, .lang-switch, .sidebar-chrome, .date-chips, .urgent-chips, .urgent-custom, .urgent-hint, .next-prompt, .toast, h1, button, input, select, textarea {
   -webkit-app-region: no-drag;
 }
 
@@ -698,27 +699,34 @@ h1[contenteditable="true"] {
   color: #fff;
 }
 
-.urgent-banner {
+.urgent-hint {
+  margin: 0 4px 8px;
+  font-size: 12px;
+  color: var(--mute);
+}
+
+.urgent-hint[hidden] { display: none; }
+
+.urgent-custom {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(255, 159, 10, 0.16);
+  gap: 8px;
+  margin: 0 4px 8px;
 }
 
-.urgent-banner-copy {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.urgent-custom[hidden] { display: none; }
+
+.urgent-custom select {
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: var(--fill-strong);
+  outline: none;
 }
 
-.urgent-banner-time {
-  font-variant-numeric: tabular-nums;
-  font-weight: 650;
+.urgent-custom span {
+  color: var(--mute);
+  font-size: 12px;
 }
 
 .next-prompt {

@@ -13,6 +13,8 @@ final class LanSync: @unchecked Sendable {
   private var deviceId: String
   private var advertisedName: String
   private var peerEndpoints: [NWEndpoint] = []
+  private var lastStore: Store?
+  private var retryWork: DispatchWorkItem?
 
   init(deviceId: String) {
     self.deviceId = deviceId
@@ -26,12 +28,14 @@ final class LanSync: @unchecked Sendable {
   }
 
   func refresh(_ store: Store) {
+    lastStore = store
     onStatus?(L10n.t("lookingMac"))
     startBrowser()
     push(store)
   }
 
   func stop() {
+    retryWork?.cancel()
     listener?.cancel()
     browser?.cancel()
     listener = nil
@@ -39,15 +43,34 @@ final class LanSync: @unchecked Sendable {
   }
 
   func push(_ store: Store) {
+    lastStore = store
     queue.async { [weak self] in
-      guard let self else { return }
-      if self.peerEndpoints.isEmpty {
-        self.onStatus?(L10n.t("waitingMac"))
-      }
-      for endpoint in self.peerEndpoints {
-        self.handle(NWConnection(to: endpoint, using: Self.tcp), outbound: store)
-      }
+      self?.flush()
+      self?.retryIfNeeded()
     }
+  }
+
+  private func flush() {
+    let store = lastStore ?? StoreFile.load()
+    lastStore = store
+    if peerEndpoints.isEmpty {
+      onStatus?(L10n.t("waitingMac"))
+      return
+    }
+    onStatus?(L10n.t("foundMac"))
+    for endpoint in peerEndpoints {
+      handle(NWConnection(to: endpoint, using: Self.tcp), outbound: store)
+    }
+  }
+
+  private func retryIfNeeded() {
+    guard peerEndpoints.isEmpty else { return }
+    retryWork?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      self?.flush()
+    }
+    retryWork = work
+    queue.asyncAfter(deadline: .now() + 0.8, execute: work)
   }
 
   private static var tcp: NWParameters {
@@ -59,8 +82,7 @@ final class LanSync: @unchecked Sendable {
 
   private static func isMacEndpoint(_ endpoint: NWEndpoint) -> Bool {
     guard case .service(let name, _, _, _) = endpoint else { return false }
-    let lower = name.lowercased()
-    return lower.contains("mac") || name.contains("Задачи")
+    return name.lowercased().contains("mac")
   }
 
   private func startListener() {
@@ -96,10 +118,7 @@ final class LanSync: @unchecked Sendable {
         self.onStatus?(L10n.t("waitingMac"))
         return
       }
-      self.onStatus?(L10n.t("foundMac"))
-      for endpoint in self.peerEndpoints {
-        self.handle(NWConnection(to: endpoint, using: Self.tcp), outbound: StoreFile.load())
-      }
+      self.flush()
     }
     browser.stateUpdateHandler = { [weak self] state in
       if case .failed = state { self?.onStatus?(L10n.t("browseFail")) }

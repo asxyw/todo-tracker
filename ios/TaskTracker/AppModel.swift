@@ -20,6 +20,7 @@ final class AppModel {
 
   @ObservationIgnored private var sync: LanSync?
   @ObservationIgnored private var toastStamp: Date?
+  @ObservationIgnored private var islandTick: Timer?
 
   init() {
     let loaded = StoreFile.load()
@@ -28,7 +29,20 @@ final class AppModel {
     syncStatus = L10n.t("local")
     StoreFile.save(store)
     startSync()
+    startIslandTick()
     UrgentAlerts.sync(store)
+  }
+
+  deinit {
+    islandTick?.invalidate()
+  }
+
+  private func startIslandTick() {
+    islandTick?.invalidate()
+    islandTick = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+      guard let self, !Domain.activeUrgent(self.store).isEmpty else { return }
+      UrgentAlerts.sync(self.store)
+    }
   }
 
   var groups: [TaskGroup] {
@@ -48,7 +62,7 @@ final class AppModel {
     if store.settings.locale == nil { store.settings.locale = L10n.code }
     self.store = store
     StoreFile.save(store)
-    sync?.push(store)
+    sync?.refresh(store)
     UrgentAlerts.sync(store)
   }
 
@@ -185,7 +199,8 @@ final class AppModel {
   }
 
   func pingNetwork() {
-    sync?.push(store)
+    UrgentAlerts.foreground = true
+    sync?.refresh(store)
     UrgentAlerts.sync(store)
   }
 
@@ -231,6 +246,7 @@ final class AppModel {
       L10n.set(merged.settings.locale)
       StoreFile.save(merged)
       UrgentAlerts.sync(merged)
+      UrgentAlerts.syncIslandWhenReady(merged)
       return merged
     }
     lan.onStatus = { [weak self] text in
